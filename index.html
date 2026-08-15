@@ -1,0 +1,2935 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>ZOYA AI</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style>
+
+/* =========================================================
+   RESET
+========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #ffffff;
+    color: #202123;
+}
+
+
+/* =========================================================
+   MAIN APP
+========================================================= */
+
+.zora {
+    width: 100%;
+    max-width: 900px;
+    height: 650px;
+
+    margin: 0 auto;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #ffffff;
+
+    overflow: hidden;
+}
+
+
+/* =========================================================
+   ZORA LOGO SOURCE
+========================================================= */
+
+:root {
+    --zora-logo:
+        url("https://drive.google.com/thumbnail?id=13yvCD_AJqoGExm57zGdtTUEezW5EAWo9&sz=w1000");
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.header {
+    height: 64px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 22px;
+
+    border-bottom: 1px solid #eeeeee;
+
+    flex-shrink: 0;
+}
+
+
+/* =========================================================
+   HEADER LOGO
+========================================================= */
+
+.logo {
+    width: 38px;
+    height: 38px;
+
+    border-radius: 12px;
+
+    background-image: var(--zora-logo);
+
+    background-repeat: no-repeat;
+
+    /*
+       Memperbesar gambar sehingga yang terlihat
+       hanya bagian simbol ZORA.
+    */
+    background-size: 270%;
+
+    /*
+       Posisi simbol Z.
+    */
+    background-position: center 38%;
+
+    background-color: #111111;
+
+    margin-right: 12px;
+
+    flex-shrink: 0;
+
+    overflow: hidden;
+}
+
+
+/* =========================================================
+   TITLE
+========================================================= */
+
+.title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.status {
+    margin-left: 10px;
+
+    font-size: 12px;
+
+    color: #777777;
+}
+
+
+/* =========================================================
+   CHAT AREA
+========================================================= */
+
+.chat {
+    flex: 1;
+
+    overflow-y: auto;
+
+    padding: 30px 22px;
+
+    scroll-behavior: smooth;
+}
+
+
+/* =========================================================
+   MESSAGE
+========================================================= */
+
+.message {
+    display: flex;
+
+    margin-bottom: 28px;
+
+    width: 100%;
+}
+
+.message.user {
+    justify-content: flex-end;
+}
+
+.message.ai {
+    justify-content: flex-start;
+}
+
+
+/* =========================================================
+   AI AVATAR
+========================================================= */
+
+.avatar {
+    width: 32px;
+    height: 32px;
+
+    border-radius: 10px;
+
+    background-image: var(--zora-logo);
+
+    background-repeat: no-repeat;
+
+    background-size: 270%;
+
+    background-position: center 38%;
+
+    background-color: #111111;
+
+    margin-right: 10px;
+
+    flex-shrink: 0;
+
+    overflow: hidden;
+}
+
+
+/* =========================================================
+   MESSAGE BUBBLE
+========================================================= */
+
+.bubble {
+    max-width: 75%;
+
+    line-height: 1.6;
+
+    font-size: 15px;
+
+    white-space: pre-wrap;
+
+    overflow-wrap: anywhere;
+}
+
+.user .bubble {
+    background: #f0f0f0;
+
+    padding: 12px 16px;
+
+    border-radius: 18px;
+}
+
+
+/* =========================================================
+   AI MARKDOWN FORMAT
+========================================================= */
+
+.ai .bubble {
+    white-space: normal;
+}
+
+.ai .bubble strong {
+    font-weight: 700;
+}
+
+.ai .bubble em {
+    font-style: italic;
+}
+
+.ai .bubble .ai-heading {
+    display: inline-block;
+
+    font-weight: 700;
+
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+
+.ai .bubble code {
+    background: #f1f1f1;
+
+    padding: 2px 5px;
+
+    border-radius: 5px;
+
+    font-family: monospace;
+
+    font-size: 13px;
+}
+
+.ai .bubble .ai-code-block {
+    display: block;
+
+    background: #f5f5f5;
+
+    padding: 10px 12px;
+
+    margin: 8px 0;
+
+    border-radius: 8px;
+
+    font-family: monospace;
+
+    white-space: pre-wrap;
+
+    overflow-x: auto;
+}
+
+.ai .bubble .ai-bullet {
+    display: block;
+
+    margin-left: 4px;
+
+    padding-left: 4px;
+}
+
+.ai .bubble .ai-number {
+    display: block;
+
+    margin-left: 4px;
+
+    padding-left: 4px;
+}
+
+
+/* =========================================================
+   WELCOME
+========================================================= */
+
+.welcome {
+    text-align: center;
+
+    margin-top: 100px;
+}
+
+
+/* =========================================================
+   WELCOME LOGO
+========================================================= */
+
+.welcome-logo {
+    width: 65px;
+    height: 65px;
+
+    margin: auto;
+
+    border-radius: 20px;
+
+    background-image: var(--zora-logo);
+
+    background-repeat: no-repeat;
+
+    background-size: 270%;
+
+    background-position: center 38%;
+
+    background-color: #111111;
+
+    overflow: hidden;
+}
+
+.welcome h1 {
+    margin-top: 20px;
+    margin-bottom: 8px;
+
+    font-size: 26px;
+}
+
+.welcome p {
+    color: #777777;
+
+    font-size: 14px;
+}
+
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+.loading {
+    display: none;
+
+    font-size: 14px;
+
+    color: #888888;
+
+    margin-left: 64px;
+
+    margin-bottom: 12px;
+
+    flex-shrink: 0;
+}
+
+.dot {
+    animation: blink 1.4s infinite;
+}
+
+.dot:nth-child(2) {
+    animation-delay: .2s;
+}
+
+.dot:nth-child(3) {
+    animation-delay: .4s;
+}
+
+@keyframes blink {
+
+    0%,
+    80%,
+    100% {
+        opacity: .2;
+    }
+
+    40% {
+        opacity: 1;
+    }
+
+}
+
+
+/* =========================================================
+   INPUT AREA
+========================================================= */
+
+.input-area {
+    padding: 15px 20px 20px;
+
+    flex-shrink: 0;
+}
+
+.input-box {
+    display: flex;
+    align-items: center;
+
+    border: 1px solid #d9d9d9;
+
+    border-radius: 18px;
+
+    padding: 7px 8px 7px 16px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 2px 10px rgba(0,0,0,0.04);
+}
+
+#question {
+    flex: 1;
+
+    border: none;
+    outline: none;
+
+    font-size: 15px;
+
+    resize: none;
+
+    font-family: inherit;
+
+    min-height: 42px;
+
+    max-height: 150px;
+
+    padding-top: 11px;
+
+    background: transparent;
+
+    color: #202123;
+}
+
+#question::placeholder {
+    color: #999999;
+}
+
+
+/* =========================================================
+   SEND BUTTON
+========================================================= */
+
+#send {
+    width: 40px;
+    height: 40px;
+
+    border: none;
+
+    border-radius: 12px;
+
+    background: #111111;
+
+    color: #ffffff;
+
+    cursor: pointer;
+
+    font-size: 18px;
+
+    flex-shrink: 0;
+
+    transition:
+        opacity .2s ease,
+        transform .1s ease;
+}
+
+#send:hover {
+    opacity: .85;
+}
+
+#send:active {
+    transform: scale(.95);
+}
+
+#send:disabled {
+    opacity: .4;
+
+    cursor: not-allowed;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media(max-width:600px) {
+
+    .zora {
+        height: 100vh;
+        height: 100dvh;
+    }
+
+    .header {
+        height: 64px;
+        padding: 0 18px;
+    }
+
+    .chat {
+        padding: 20px 15px;
+    }
+
+    .bubble {
+        max-width: 85%;
+    }
+
+    .welcome {
+        margin-top: 80px;
+    }
+
+    .welcome h1 {
+        font-size: 23px;
+    }
+
+    .input-area {
+        padding: 10px 12px 14px;
+    }
+
+}
+
+
+/* =========================================================
+   ERROR MESSAGE
+========================================================= */
+
+.error-message {
+    color: #555555;
+}
+
+
+/* =========================================================
+   RETRY STATUS
+========================================================= */
+
+.retry-status {
+    font-size: 13px;
+
+    color: #888888;
+
+    margin-left: 64px;
+
+    margin-bottom: 15px;
+
+    display: none;
+}
+
+
+/* =========================================================
+   GOOGLE LOGIN / MULTI USER — STEP 11
+========================================================= */
+
+.zoya-account {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.zoya-login-btn {
+    border: 1px solid #e5e5e5;
+    background: #ffffff;
+    color: #202123;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .18s ease;
+}
+
+.zoya-login-btn:hover {
+    background: #f7f7f7;
+}
+
+.zoya-user {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #555;
+}
+
+.zoya-user img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #eee;
+}
+
+.zoya-logout {
+    border: 0;
+    background: transparent;
+    color: #777;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 6px;
+}
+
+.zoya-auth-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,.96);
+}
+
+.zoya-auth-card {
+    width: min(92vw, 380px);
+    padding: 32px 28px;
+    border: 1px solid #ececec;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 18px 60px rgba(0,0,0,.08);
+    text-align: center;
+}
+
+.zoya-auth-logo {
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 18px;
+    border-radius: 16px;
+    background-image: var(--zora-logo);
+    background-repeat: no-repeat;
+    background-size: 270%;
+    background-position: center 38%;
+    background-color: #111;
+}
+
+.zoya-auth-card h2 {
+    margin: 0 0 8px;
+    font-size: 22px;
+}
+
+.zoya-auth-card p {
+    margin: 0 0 22px;
+    color: #777;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#zoyaGoogleButton {
+    display: flex;
+    justify-content: center;
+    min-height: 44px;
+}
+
+.zoya-auth-error {
+    display: none;
+    margin-top: 14px;
+    color: #b42318;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+     ZOYA GOOGLE AUTH UI — STEP 11
+====================================================== -->
+
+<div class="zoya-auth-overlay" id="zoyaAuthOverlay">
+    <div class="zoya-auth-card">
+        <div class="zoya-auth-logo"></div>
+        <h2>Masuk ke ZOYA AI</h2>
+        <p>
+            Gunakan akun Google Anda untuk masuk.
+            Data ZOYA akan dipersiapkan agar dapat dipisahkan
+            berdasarkan akun pengguna.
+        </p>
+
+        <div id="zoyaGoogleButton"></div>
+
+        <div class="zoya-auth-error" id="zoyaAuthError"></div>
+    </div>
+</div>
+
+
+
+<div class="zora">
+
+
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
+
+    <div class="header">
+
+        <div class="logo"></div>
+
+        <div class="title">
+            ZOYA AI
+        </div>
+
+        <div class="status">
+            AI Assistant
+        </div>
+
+
+        <div class="zoya-account">
+
+            <button
+                type="button"
+                class="zoya-login-btn"
+                id="zoyaLoginButton"
+                onclick="openZoyaGoogleLogin()"
+            >
+                Masuk dengan Google
+            </button>
+
+            <div
+                class="zoya-user"
+                id="zoyaUser"
+            >
+                <img
+                    id="zoyaUserPicture"
+                    alt="Foto profil"
+                >
+
+                <span id="zoyaUserName"></span>
+
+                <button
+                    type="button"
+                    class="zoya-logout"
+                    onclick="logoutZoya()"
+                >
+                    Keluar
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         CHAT
+    ====================================================== -->
+
+    <div
+        class="chat"
+        id="chat"
+    >
+
+        <div
+            class="welcome"
+            id="welcome"
+        >
+
+            <div class="welcome-logo"></div>
+
+            <h1>
+                Apa yang bisa saya bantu?
+            </h1>
+
+            <p>
+                Tanyakan sesuatu kepada ZOYA AI
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         LOADING
+    ====================================================== -->
+
+    <div
+        class="loading"
+        id="loading"
+    >
+
+        ZOYA sedang berpikir
+
+        <span class="dot">.</span>
+        <span class="dot">.</span>
+        <span class="dot">.</span>
+
+    </div>
+
+
+    <!-- =====================================================
+         RETRY STATUS
+    ====================================================== -->
+
+    <div
+        class="retry-status"
+        id="retryStatus"
+    >
+
+        Mencoba menghubungkan kembali...
+
+    </div>
+
+
+    <!-- =====================================================
+         INPUT
+    ====================================================== -->
+
+    <div class="input-area">
+
+        <div class="input-box">
+
+            <textarea
+                id="question"
+                placeholder="Tanya apa saja..."
+                rows="1"
+                autocomplete="off"
+            ></textarea>
+
+            <button
+                id="send"
+                type="button"
+                onclick="sendMessage()"
+            >
+                ↑
+            </button>
+
+        </div>
+
+    </div>
+
+
+</div>
+
+
+
+<script>
+
+/* =========================================================
+   ZORA AI FRONTEND
+   VERSION 6
+========================================================= */
+
+
+/* =========================================================
+   BACKEND URL
+========================================================= */
+
+const BACKEND_URL =
+"https://script.google.com/macros/s/AKfycbw33TXwySs86gmsMloKyXFSXiaQx38nnn-7Lo8-af-BK6nnchC2wGH52ogF-aVit1j7Cg/exec";
+
+/* =========================================================
+   GOOGLE AUTHENTICATION — STEP 11
+========================================================= */
+
+const GOOGLE_CLIENT_ID =
+"479744241883-ecoambqv0vf690h872ughjld14svq6do.apps.googleusercontent.com";
+
+const ZOYA_AUTH_STORAGE_KEY =
+"ZOYA_GOOGLE_SESSION_V1";
+
+let zoyaSession = null;
+
+
+/* =========================================================
+   AUTH ELEMENTS
+========================================================= */
+
+const zoyaAuthOverlay =
+document.getElementById("zoyaAuthOverlay");
+
+const zoyaAuthError =
+document.getElementById("zoyaAuthError");
+
+const zoyaGoogleButton =
+document.getElementById("zoyaGoogleButton");
+
+const zoyaLoginButton =
+document.getElementById("zoyaLoginButton");
+
+const zoyaUser =
+document.getElementById("zoyaUser");
+
+const zoyaUserPicture =
+document.getElementById("zoyaUserPicture");
+
+const zoyaUserName =
+document.getElementById("zoyaUserName");
+
+
+/* =========================================================
+   AUTH STORAGE
+========================================================= */
+
+function loadZoyaSession() {
+
+    try {
+
+        const raw =
+        localStorage.getItem(
+            ZOYA_AUTH_STORAGE_KEY
+        );
+
+        if (!raw) {
+            return null;
+        }
+
+        const data =
+        JSON.parse(raw);
+
+        if (
+            !data ||
+            data.authenticated !== true ||
+            !data.user ||
+            !data.user.userId
+        ) {
+            return null;
+        }
+
+        return data;
+
+    } catch (error) {
+
+        console.error(
+            "Gagal membaca session ZOYA:",
+            error
+        );
+
+        return null;
+    }
+}
+
+
+function saveZoyaSession(data) {
+
+    try {
+
+        localStorage.setItem(
+            ZOYA_AUTH_STORAGE_KEY,
+            JSON.stringify(data)
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Gagal menyimpan session ZOYA:",
+            error
+        );
+    }
+}
+
+
+function clearZoyaSession() {
+
+    try {
+
+        localStorage.removeItem(
+            ZOYA_AUTH_STORAGE_KEY
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Gagal menghapus session ZOYA:",
+            error
+        );
+    }
+}
+
+
+/* =========================================================
+   AUTH UI
+========================================================= */
+
+function showZoyaAuthError(message) {
+
+    if (!zoyaAuthError) {
+        return;
+    }
+
+    zoyaAuthError.textContent =
+        String(message || "Login gagal.");
+
+    zoyaAuthError.style.display =
+        "block";
+}
+
+
+function clearZoyaAuthError() {
+
+    if (!zoyaAuthError) {
+        return;
+    }
+
+    zoyaAuthError.textContent =
+        "";
+
+    zoyaAuthError.style.display =
+        "none";
+}
+
+
+function updateZoyaAuthUI() {
+
+    if (!zoyaSession || !zoyaSession.user) {
+
+        if (zoyaAuthOverlay) {
+            zoyaAuthOverlay.style.display =
+                "flex";
+        }
+
+        if (zoyaLoginButton) {
+            zoyaLoginButton.style.display =
+                "inline-flex";
+        }
+
+        if (zoyaUser) {
+            zoyaUser.style.display =
+                "none";
+        }
+
+        return;
+    }
+
+    if (zoyaAuthOverlay) {
+        zoyaAuthOverlay.style.display =
+            "none";
+    }
+
+    if (zoyaLoginButton) {
+        zoyaLoginButton.style.display =
+            "none";
+    }
+
+    if (zoyaUser) {
+        zoyaUser.style.display =
+            "flex";
+    }
+
+    if (zoyaUserName) {
+        zoyaUserName.textContent =
+            zoyaSession.user.name ||
+            zoyaSession.user.email ||
+            "User";
+    }
+
+    if (
+        zoyaUserPicture &&
+        zoyaSession.user.picture
+    ) {
+        zoyaUserPicture.src =
+            zoyaSession.user.picture;
+    }
+}
+
+
+/* =========================================================
+   GOOGLE LOGIN
+========================================================= */
+
+function initializeZoyaGoogleLogin() {
+
+    if (
+        !window.google ||
+        !window.google.accounts ||
+        !window.google.accounts.id
+    ) {
+
+        showZoyaAuthError(
+            "Google Login belum siap. Muat ulang halaman lalu coba lagi."
+        );
+
+        return;
+    }
+
+    google.accounts.id.initialize({
+
+        client_id:
+            GOOGLE_CLIENT_ID,
+
+        callback:
+            handleZoyaGoogleCredential,
+
+        auto_select:
+            false,
+
+        cancel_on_tap_outside:
+            true
+
+    });
+
+    google.accounts.id.renderButton(
+        zoyaGoogleButton,
+        {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            text: "signin_with",
+            shape: "rectangular",
+            logo_alignment: "left",
+            width: 280
+        }
+    );
+}
+
+
+function openZoyaGoogleLogin() {
+
+    clearZoyaAuthError();
+
+    if (zoyaAuthOverlay) {
+        zoyaAuthOverlay.style.display =
+            "flex";
+    }
+
+    if (
+        window.google &&
+        window.google.accounts &&
+        window.google.accounts.id
+    ) {
+        google.accounts.id.prompt();
+    }
+}
+
+
+/* =========================================================
+   SEND GOOGLE ID TOKEN TO BACKEND
+========================================================= */
+
+function authenticateZoyaWithBackend(
+    idToken
+) {
+
+    return new Promise(
+        function(resolve, reject) {
+
+            const callbackName =
+                createCallbackName();
+
+            const script =
+                document.createElement(
+                    "script"
+                );
+
+            let finished = false;
+            let timeoutId = null;
+
+            function cleanup() {
+
+                if (timeoutId) {
+                    clearTimeout(
+                        timeoutId
+                    );
+                    timeoutId = null;
+                }
+
+                if (
+                    script &&
+                    script.parentNode
+                ) {
+                    script.parentNode.removeChild(
+                        script
+                    );
+                }
+
+                try {
+                    delete window[
+                        callbackName
+                    ];
+                } catch (error) {
+                    window[
+                        callbackName
+                    ] = undefined;
+                }
+            }
+
+            function finishSuccess(data) {
+
+                if (finished) {
+                    return;
+                }
+
+                finished = true;
+                cleanup();
+
+                if (
+                    !data ||
+                    data.success !== true ||
+                    data.authenticated !== true ||
+                    !data.user ||
+                    !data.user.userId
+                ) {
+                    reject(
+                        new Error(
+                            data && data.error
+                                ? String(data.error)
+                                : "Backend tidak mengonfirmasi login Google."
+                        )
+                    );
+                    return;
+                }
+
+                resolve(data);
+            }
+
+            window[callbackName] =
+            finishSuccess;
+
+            script.onerror =
+            function() {
+
+                if (finished) {
+                    return;
+                }
+
+                finished = true;
+                cleanup();
+
+                reject(
+                    new Error(
+                        "Browser tidak menerima response login dari Google Apps Script."
+                    )
+                );
+            };
+
+            const params =
+                new URLSearchParams();
+
+            params.set(
+                "action",
+                "google_login"
+            );
+
+            params.set(
+                "id_token",
+                String(idToken || "")
+            );
+
+            params.set(
+                "callback",
+                callbackName
+            );
+
+            /* =================================================
+               AUTHENTICATED USER
+            ================================================= */
+
+            const currentUserId =
+                getZoyaUserId();
+
+            if (!currentUserId) {
+                reject(
+                    new Error(
+                        "Silakan login dengan Google terlebih dahulu."
+                    )
+                );
+                return;
+            }
+
+            params.set(
+                "user_id",
+                currentUserId
+            );
+
+            params.set(
+                "_",
+                String(Date.now())
+            );
+
+            script.src =
+                BACKEND_URL +
+                "?" +
+                params.toString();
+
+            script.async =
+                true;
+
+            document.body.appendChild(
+                script
+            );
+
+            timeoutId =
+                setTimeout(
+                    function() {
+
+                        if (finished) {
+                            return;
+                        }
+
+                        finished = true;
+                        cleanup();
+
+                        reject(
+                            new Error(
+                                "Verifikasi login ZOYA terlalu lama."
+                            )
+                        );
+
+                    },
+                    30000
+                );
+        }
+    );
+}
+
+
+/* =========================================================
+   GOOGLE CREDENTIAL CALLBACK
+========================================================= */
+
+async function handleZoyaGoogleCredential(
+    response
+) {
+
+    clearZoyaAuthError();
+
+    try {
+
+        if (
+            !response ||
+            !response.credential
+        ) {
+            throw new Error(
+                "Google tidak memberikan ID Token."
+            );
+        }
+
+        const result =
+            await authenticateZoyaWithBackend(
+                response.credential
+            );
+
+        zoyaSession =
+            result;
+
+        saveZoyaSession(
+            zoyaSession
+        );
+
+        updateZoyaAuthUI();
+
+        console.log(
+            "ZOYA LOGIN BERHASIL:",
+            zoyaSession.user
+        );
+
+    } catch (error) {
+
+        console.error(
+            "ZOYA GOOGLE LOGIN ERROR:",
+            error
+        );
+
+        showZoyaAuthError(
+            error &&
+            error.message
+                ? error.message
+                : "Login Google gagal."
+        );
+    }
+}
+
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+function logoutZoya() {
+
+    clearZoyaSession();
+
+    zoyaSession =
+        null;
+
+    if (
+        window.google &&
+        window.google.accounts &&
+        window.google.accounts.id
+    ) {
+
+        try {
+            google.accounts.id.disableAutoSelect();
+        } catch (error) {
+            console.warn(
+                "Google disableAutoSelect:",
+                error
+            );
+        }
+    }
+
+    updateZoyaAuthUI();
+}
+
+
+/* =========================================================
+   CURRENT USER
+========================================================= */
+
+function getZoyaUserId() {
+
+    if (
+        zoyaSession &&
+        zoyaSession.user &&
+        zoyaSession.user.userId
+    ) {
+        return String(
+            zoyaSession.user.userId
+        );
+    }
+
+    return "";
+}
+
+
+function getZoyaAuthToken() {
+
+    if (
+        zoyaSession &&
+        zoyaSession.user
+    ) {
+        return zoyaSession.user;
+    }
+
+    return null;
+}
+
+
+
+/* =========================================================
+   MEMORY
+========================================================= */
+
+const MEMORY_KEY =
+"ZORA_AI_MEMORY_V6";
+
+
+/*
+   PENTING:
+
+   Jangan mengirim history terlalu banyak.
+
+   Karena kita menggunakan JSONP + GET,
+   history masuk ke URL.
+
+   Jika history terlalu panjang,
+   URL dapat menjadi terlalu besar
+   dan browser dapat gagal memuat script.
+*/
+
+const MAX_HISTORY_MESSAGES = 8;
+
+
+/*
+   Batas karakter setiap pesan yang dikirim
+   ke backend.
+*/
+
+const MAX_HISTORY_CHARS = 1200;
+
+
+/*
+   Maksimal percobaan request.
+*/
+
+const MAX_RETRIES = 3;
+
+
+/*
+   Timeout setiap percobaan.
+*/
+
+const REQUEST_TIMEOUT = 45000;
+
+
+let conversationHistory = [];
+
+let isSending = false;
+
+
+/* =========================================================
+   ELEMENT
+========================================================= */
+
+const questionInput =
+document.getElementById("question");
+
+const chat =
+document.getElementById("chat");
+
+const loading =
+document.getElementById("loading");
+
+const sendButton =
+document.getElementById("send");
+
+const welcome =
+document.getElementById("welcome");
+
+const retryStatus =
+document.getElementById("retryStatus");
+
+
+/* =========================================================
+   LOAD MEMORY
+========================================================= */
+
+function loadMemory() {
+
+    try {
+
+        const saved =
+            localStorage.getItem(
+                MEMORY_KEY
+            );
+
+
+        if (!saved) {
+
+            return;
+
+        }
+
+
+        const data =
+            JSON.parse(saved);
+
+
+        if (!Array.isArray(data)) {
+
+            return;
+
+        }
+
+
+        conversationHistory =
+            data
+            .filter(function(item) {
+
+                return (
+
+                    item &&
+
+                    (
+                        item.role === "user" ||
+                        item.role === "assistant"
+                    ) &&
+
+                    typeof item.text === "string" &&
+
+                    item.text.trim() !== ""
+
+                );
+
+            })
+            .slice(
+                -MAX_HISTORY_MESSAGES
+            );
+
+
+        console.log(
+            "MEMORY DIMUAT:",
+            conversationHistory
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Gagal membaca memory:",
+            error
+        );
+
+        conversationHistory = [];
+
+    }
+
+}
+
+
+/* =========================================================
+   SAVE MEMORY
+========================================================= */
+
+function saveMemory() {
+
+    try {
+
+        conversationHistory =
+            conversationHistory
+            .slice(
+                -MAX_HISTORY_MESSAGES
+            );
+
+
+        localStorage.setItem(
+
+            MEMORY_KEY,
+
+            JSON.stringify(
+                conversationHistory
+            )
+
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Gagal menyimpan memory:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   LOAD MEMORY
+========================================================= */
+
+loadMemory();
+
+
+/* =========================================================
+   PREPARE HISTORY
+========================================================= */
+
+function prepareHistory(history) {
+
+    if (!Array.isArray(history)) {
+
+        return [];
+
+    }
+
+
+    return history
+
+        .slice(
+            -MAX_HISTORY_MESSAGES
+        )
+
+        .map(function(item) {
+
+            let text =
+                String(
+                    item.text || ""
+                );
+
+
+            if (
+                text.length >
+                MAX_HISTORY_CHARS
+            ) {
+
+                text =
+                    text.substring(
+                        0,
+                        MAX_HISTORY_CHARS
+                    ) +
+                    "...";
+
+            }
+
+
+            return {
+
+                role:
+                    item.role,
+
+                text:
+                    text
+
+            };
+
+        });
+
+}
+
+
+/* =========================================================
+   FORMAT AI RESPONSE
+========================================================= */
+
+function formatAIResponse(text) {
+
+    if (!text) {
+
+        return "";
+
+    }
+
+
+    let source =
+        String(text);
+
+
+    /*
+       Escape HTML terlebih dahulu.
+    */
+
+    source =
+        source
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+
+    /*
+       Code block
+    */
+
+    source =
+        source.replace(
+            /```([\s\S]*?)```/g,
+            function(match, code) {
+
+                return (
+                    '<pre class="ai-code-block">' +
+                    code.trim() +
+                    '</pre>'
+                );
+
+            }
+        );
+
+
+    /*
+       Inline code
+    */
+
+    source =
+        source.replace(
+            /`([^`\n]+)`/g,
+            '<code>$1</code>'
+        );
+
+
+    /*
+       Bold
+    */
+
+    source =
+        source.replace(
+            /\*\*(.+?)\*\*/g,
+            '<strong>$1</strong>'
+        );
+
+
+    /*
+       Bold alternatif
+    */
+
+    source =
+        source.replace(
+            /__(.+?)__/g,
+            '<strong>$1</strong>'
+        );
+
+
+    /*
+       Italic
+    */
+
+    source =
+        source.replace(
+            /(^|[^\*])\*([^\*\n]+)\*(?!\*)/g,
+            '$1<em>$2</em>'
+        );
+
+
+    /*
+       Italic alternatif
+    */
+
+    source =
+        source.replace(
+            /(^|[^_])_([^_\n]+)_(?!_)/g,
+            '$1<em>$2</em>'
+        );
+
+
+    /*
+       Heading ###
+    */
+
+    source =
+        source.replace(
+            /^###\s+(.+)$/gm,
+            '<span class="ai-heading">$1</span>'
+        );
+
+
+    /*
+       Heading ##
+    */
+
+    source =
+        source.replace(
+            /^##\s+(.+)$/gm,
+            '<span class="ai-heading">$1</span>'
+        );
+
+
+    /*
+       Heading #
+    */
+
+    source =
+        source.replace(
+            /^#\s+(.+)$/gm,
+            '<span class="ai-heading">$1</span>'
+        );
+
+
+    /*
+       Bullet dengan -
+    */
+
+    source =
+        source.replace(
+            /^[ \t]*-\s+(.+)$/gm,
+            '<span class="ai-bullet">• $1</span>'
+        );
+
+
+    /*
+       Bullet dengan *
+    */
+
+    source =
+        source.replace(
+            /^[ \t]*\*\s+(.+)$/gm,
+            '<span class="ai-bullet">• $1</span>'
+        );
+
+
+    /*
+       Bullet dengan +
+    */
+
+    source =
+        source.replace(
+            /^[ \t]*\+\s+(.+)$/gm,
+            '<span class="ai-bullet">• $1</span>'
+        );
+
+
+    /*
+       Numbered list
+    */
+
+    source =
+        source.replace(
+            /^[ \t]*(\d+)\.\s+(.+)$/gm,
+            '<span class="ai-number">$1. $2</span>'
+        );
+
+
+    /*
+       Horizontal separator
+    */
+
+    source =
+        source.replace(
+            /^[ \t]*(?:-{3,}|\*{3,}|_{3,})[ \t]*$/gm,
+            ''
+        );
+
+
+    /*
+       New line menjadi <br>
+    */
+
+    source =
+        source.replace(
+            /\n/g,
+            '<br>'
+        );
+
+
+    return source;
+
+}
+
+
+/* =========================================================
+   ADD MESSAGE
+========================================================= */
+
+function addMessage(
+    text,
+    type
+) {
+
+    const message =
+        document.createElement(
+            "div"
+        );
+
+
+    message.className =
+        "message " +
+        type;
+
+
+    /* =====================================================
+       AI AVATAR
+    ====================================================== */
+
+    if (
+        type === "ai"
+    ) {
+
+        const avatar =
+            document.createElement(
+                "div"
+            );
+
+
+        avatar.className =
+            "avatar";
+
+
+        /*
+           Tidak lagi menggunakan huruf Z.
+           Logo berasal dari Google Drive melalui CSS.
+        */
+
+
+        message.appendChild(
+            avatar
+        );
+
+    }
+
+
+    /* =====================================================
+       BUBBLE
+    ====================================================== */
+
+    const bubble =
+        document.createElement(
+            "div"
+        );
+
+
+    bubble.className =
+        "bubble";
+
+
+    /*
+       Pesan AI menggunakan formatter Markdown.
+       Pesan USER tetap menggunakan textContent.
+    */
+
+    if (
+        type === "ai"
+    ) {
+
+        bubble.innerHTML =
+            formatAIResponse(text);
+
+    } else {
+
+        bubble.textContent =
+            String(text || "");
+
+    }
+
+
+    message.appendChild(
+        bubble
+    );
+
+
+    /* =====================================================
+       CHAT
+    ====================================================== */
+
+    chat.appendChild(
+        message
+    );
+
+
+    requestAnimationFrame(
+        function() {
+
+            chat.scrollTop =
+                chat.scrollHeight;
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   CREATE CALLBACK NAME
+========================================================= */
+
+function createCallbackName() {
+
+    return (
+
+        "zoraCallback_" +
+
+        Date.now() +
+
+        "_" +
+
+        Math.random()
+            .toString(36)
+            .substring(2, 10)
+
+    );
+
+}
+
+
+/* =========================================================
+   ASK ZORA
+========================================================= */
+
+function askZora(
+    question,
+    history
+) {
+
+    return new Promise(
+        function(resolve, reject) {
+
+            const callbackName =
+                createCallbackName();
+
+
+            let finished = false;
+
+            let timeoutId = null;
+
+
+            const script =
+                document.createElement(
+                    "script"
+                );
+
+
+            /* =================================================
+               CLEANUP
+            ================================================= */
+
+            function cleanup() {
+
+                if (
+                    timeoutId
+                ) {
+
+                    clearTimeout(
+                        timeoutId
+                    );
+
+                    timeoutId = null;
+
+                }
+
+
+                if (
+                    script &&
+                    script.parentNode
+                ) {
+
+                    script.parentNode
+                        .removeChild(
+                            script
+                        );
+
+                }
+
+
+                try {
+
+                    delete window[
+                        callbackName
+                    ];
+
+                } catch (error) {
+
+                    window[
+                        callbackName
+                    ] = undefined;
+
+                }
+
+            }
+
+
+            /* =================================================
+               COMPLETE
+            ================================================= */
+
+            function completeSuccess(
+                data
+            ) {
+
+                if (finished) {
+
+                    return;
+
+                }
+
+
+                finished = true;
+
+
+                cleanup();
+
+
+                if (
+                    !data ||
+                    data.success !== true
+                ) {
+
+                    reject(
+
+                        new Error(
+
+                            data &&
+                            data.error
+
+                                ?
+
+                            String(
+                                data.error
+                            )
+
+                                :
+
+                            "Backend ZORA tidak memberikan jawaban."
+
+                        )
+
+                    );
+
+                    return;
+
+                }
+
+
+                resolve(data);
+
+            }
+
+
+            /* =================================================
+               CALLBACK GLOBAL
+            ================================================= */
+
+            window[
+                callbackName
+            ] =
+            function(data) {
+
+                console.log(
+                    "ZORA CALLBACK:",
+                    data
+                );
+
+
+                completeSuccess(
+                    data
+                );
+
+            };
+
+
+            /* =================================================
+               SCRIPT ERROR
+            ================================================= */
+
+            script.onerror =
+            function() {
+
+                if (finished) {
+
+                    return;
+
+                }
+
+
+                finished = true;
+
+
+                cleanup();
+
+
+                reject(
+
+                    new Error(
+
+                        "Browser tidak menerima response dari Google Apps Script."
+
+                    )
+
+                );
+
+            };
+
+
+            /* =================================================
+               HISTORY
+            ================================================= */
+
+            const safeHistory =
+                prepareHistory(
+                    history
+                );
+
+
+            /* =================================================
+               PARAMETER
+            ================================================= */
+
+            const params =
+                new URLSearchParams();
+
+
+            params.set(
+                "q",
+                String(question)
+            );
+
+
+            params.set(
+                "history",
+                JSON.stringify(
+                    safeHistory
+                )
+            );
+
+
+            params.set(
+                "callback",
+                callbackName
+            );
+
+
+            /*
+               Cache breaker.
+            */
+
+            params.set(
+                "_",
+                String(
+                    Date.now()
+                )
+            );
+
+
+            /* =================================================
+               FINAL URL
+            ================================================= */
+
+            const requestUrl =
+                BACKEND_URL +
+                "?" +
+                params.toString();
+
+
+            console.log(
+                "ZORA REQUEST:",
+                requestUrl
+            );
+
+
+            script.src =
+                requestUrl;
+
+
+            script.async =
+                true;
+
+
+            document.body.appendChild(
+                script
+            );
+
+
+            /* =================================================
+               TIMEOUT
+            ================================================= */
+
+            timeoutId =
+                setTimeout(
+
+                    function() {
+
+                        if (finished) {
+
+                            return;
+
+                        }
+
+
+                        finished =
+                            true;
+
+
+                        cleanup();
+
+
+                        reject(
+
+                            new Error(
+
+                                "Response ZORA terlalu lama."
+
+                            )
+
+                        );
+
+                    },
+
+                    REQUEST_TIMEOUT
+
+                );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   WAIT
+========================================================= */
+
+function wait(ms) {
+
+    return new Promise(
+        function(resolve) {
+
+            setTimeout(
+                resolve,
+                ms
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   ASK WITH RETRY
+========================================================= */
+
+async function askZoraWithRetry(
+    question,
+    history
+) {
+
+    let lastError = null;
+
+
+    for (
+        let attempt = 1;
+        attempt <= MAX_RETRIES;
+        attempt++
+    ) {
+
+        try {
+
+            console.log(
+                "ZORA ATTEMPT:",
+                attempt
+            );
+
+
+            if (
+                attempt > 1
+            ) {
+
+                retryStatus.style.display =
+                    "block";
+
+
+                retryStatus.textContent =
+
+                    "Mencoba menghubungkan kembali (" +
+                    attempt +
+                    "/" +
+                    MAX_RETRIES +
+                    ")...";
+
+            }
+
+
+            const result =
+                await askZora(
+                    question,
+                    history
+                );
+
+
+            retryStatus.style.display =
+                "none";
+
+
+            return result;
+
+
+        } catch (error) {
+
+            console.error(
+
+                "ZORA ATTEMPT " +
+                attempt +
+                " ERROR:",
+
+                error
+
+            );
+
+
+            lastError =
+                error;
+
+
+            if (
+                attempt <
+                MAX_RETRIES
+            ) {
+
+                /*
+                   Exponential backoff:
+
+                   1 → 1.5 detik
+                   2 → 3 detik
+                */
+
+                const delay =
+                    attempt * 1500;
+
+
+                await wait(
+                    delay
+                );
+
+            }
+
+        }
+
+    }
+
+
+    retryStatus.style.display =
+        "none";
+
+
+    throw lastError ||
+        new Error(
+            "ZORA gagal memberikan response."
+        );
+
+}
+
+
+/* =========================================================
+   SEND MESSAGE
+========================================================= */
+
+async function sendMessage() {
+
+    /* =====================================================
+       WAJIB LOGIN
+    ====================================================== */
+
+    if (!getZoyaUserId()) {
+
+        openZoyaGoogleLogin();
+
+        return;
+    }
+
+
+    /* =====================================================
+       CEGAH DOUBLE SEND
+    ====================================================== */
+
+    if (
+        isSending
+    ) {
+
+        return;
+
+    }
+
+
+    /* =====================================================
+       AMBIL PERTANYAAN
+    ====================================================== */
+
+    const question =
+        questionInput.value.trim();
+
+
+    if (
+        !question
+    ) {
+
+        return;
+
+    }
+
+
+    /* =====================================================
+       LOCK
+    ====================================================== */
+
+    isSending =
+        true;
+
+
+    sendButton.disabled =
+        true;
+
+
+    /* =====================================================
+       HAPUS WELCOME
+    ====================================================== */
+
+    if (
+        welcome &&
+        welcome.parentNode
+    ) {
+
+        welcome.remove();
+
+    }
+
+
+    /* =====================================================
+       TAMPILKAN USER
+    ====================================================== */
+
+    addMessage(
+        question,
+        "user"
+    );
+
+
+    /* =====================================================
+       SIMPAN HISTORY SEBELUM REQUEST
+    ====================================================== */
+
+    const historyToSend =
+        prepareHistory(
+            conversationHistory
+        );
+
+
+    console.log(
+        "HISTORY DIKIRIM:",
+        historyToSend
+    );
+
+
+    /* =====================================================
+       CLEAR INPUT
+    ====================================================== */
+
+    questionInput.value =
+        "";
+
+
+    autoResizeTextarea();
+
+
+    /* =====================================================
+       LOADING
+    ====================================================== */
+
+    loading.style.display =
+        "block";
+
+
+    retryStatus.style.display =
+        "none";
+
+
+    try {
+
+        /* =================================================
+           REQUEST
+        ================================================== */
+
+        const result =
+            await askZoraWithRetry(
+
+                question,
+
+                historyToSend
+
+            );
+
+
+        /* =================================================
+           ANSWER
+        ================================================== */
+
+        const answer =
+            String(
+                result.answer || ""
+            ).trim();
+
+
+        if (
+            !answer
+        ) {
+
+            throw new Error(
+                "ZORA mengembalikan jawaban kosong."
+            );
+
+        }
+
+
+        /* =================================================
+           SIMPAN USER
+        ================================================== */
+
+        conversationHistory.push({
+
+            role:
+                "user",
+
+            text:
+                question
+
+        });
+
+
+        /* =================================================
+           SIMPAN AI
+        ================================================== */
+
+        conversationHistory.push({
+
+            role:
+                "assistant",
+
+            text:
+                answer
+
+        });
+
+
+        /* =================================================
+           SIMPAN MEMORY
+        ================================================== */
+
+        saveMemory();
+
+
+        /* =================================================
+           TAMPILKAN AI
+        ================================================== */
+
+        addMessage(
+            answer,
+            "ai"
+        );
+
+
+        console.log(
+            "ZORA SUCCESS"
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "ZORA FINAL ERROR:",
+            error
+        );
+
+
+        /*
+           Jangan bilang "server mati".
+
+           Kita tidak tahu server mati.
+           Yang kita tahu adalah browser
+           tidak menerima response.
+        */
+
+        let errorMessage =
+
+            "ZORA belum menerima respons dari server.";
+
+
+        if (
+            error &&
+            error.message
+        ) {
+
+            errorMessage +=
+
+                "\n\n" +
+
+                error.message;
+
+        }
+
+
+        addMessage(
+            errorMessage,
+            "ai"
+        );
+
+
+    } finally {
+
+        /* =================================================
+           RESET UI
+        ================================================== */
+
+        loading.style.display =
+            "none";
+
+
+        retryStatus.style.display =
+            "none";
+
+
+        sendButton.disabled =
+            false;
+
+
+        isSending =
+            false;
+
+
+        questionInput.focus();
+
+    }
+
+}
+
+
+/* =========================================================
+   AUTO RESIZE TEXTAREA
+========================================================= */
+
+function autoResizeTextarea() {
+
+    questionInput.style.height =
+        "auto";
+
+
+    const newHeight =
+        Math.min(
+            questionInput.scrollHeight,
+            150
+        );
+
+
+    questionInput.style.height =
+        newHeight + "px";
+
+}
+
+
+/* =========================================================
+   TEXTAREA INPUT
+========================================================= */
+
+questionInput.addEventListener(
+
+    "input",
+
+    function() {
+
+        autoResizeTextarea();
+
+    }
+
+);
+
+
+/* =========================================================
+   ENTER
+========================================================= */
+
+questionInput.addEventListener(
+
+    "keydown",
+
+    function(event) {
+
+        if (
+
+            event.key === "Enter" &&
+
+            !event.shiftKey
+
+        ) {
+
+            event.preventDefault();
+
+            sendMessage();
+
+        }
+
+    }
+
+);
+
+
+/* =========================================================
+   INITIALIZE GOOGLE AUTH
+========================================================= */
+
+(function startZoyaAuthentication() {
+
+    zoyaSession =
+        loadZoyaSession();
+
+    updateZoyaAuthUI();
+
+    /*
+       GIS script memakai async/defer.
+       Tunggu sampai library Google tersedia.
+    */
+    let attempts = 0;
+
+    const timer =
+        setInterval(
+            function() {
+
+                attempts++;
+
+                if (
+                    window.google &&
+                    window.google.accounts &&
+                    window.google.accounts.id
+                ) {
+
+                    clearInterval(timer);
+
+                    initializeZoyaGoogleLogin();
+
+                    return;
+                }
+
+                if (attempts >= 100) {
+
+                    clearInterval(timer);
+
+                    if (!zoyaSession) {
+                        showZoyaAuthError(
+                            "Google Login tidak dapat dimuat. Pastikan koneksi internet aktif."
+                        );
+                    }
+                }
+
+            },
+            100
+        );
+
+})();
+
+
+/* =========================================================
+   INITIALIZATION
+========================================================= */
+
+console.log(
+    "================================="
+);
+
+console.log(
+    "ZOYA AI FRONTEND V6 + GOOGLE LOGIN STEP 11 AKTIF"
+);
+
+console.log(
+    "BACKEND:",
+    BACKEND_URL
+);
+
+console.log(
+    "MAX HISTORY:",
+    MAX_HISTORY_MESSAGES
+);
+
+console.log(
+    "MAX HISTORY CHARS:",
+    MAX_HISTORY_CHARS
+);
+
+console.log(
+    "MAX RETRIES:",
+    MAX_RETRIES
+);
+
+console.log(
+    "TIMEOUT:",
+    REQUEST_TIMEOUT
+);
+
+console.log(
+    "MEMORY:",
+    conversationHistory
+);
+
+console.log(
+    "================================="
+);
+
+</script>
+
+
+</body>
+</html>
