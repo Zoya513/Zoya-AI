@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ZOYA AI — FINAL Upload</title>
+<title>ZOYA AI</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;padding:0;width:100%;height:100%}body{font-family:Arial,sans-serif;background:#fff;color:#202123}.zora{width:100%;max-width:900px;height:650px;margin:auto;display:flex;flex-direction:column;background:#fff;overflow:hidden}:root{--zora-logo:url("https://drive.google.com/thumbnail?id=13yvCD_AJqoGExm57zGdtTUEezW5EAWo9&sz=w1000")}.header{height:64px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid #eee;flex-shrink:0}.logo,.avatar,.welcome-logo{background-image:var(--zora-logo);background-repeat:no-repeat;background-size:270%;background-position:center 38%;background-color:#111;overflow:hidden}.logo{width:38px;height:38px;border-radius:12px;margin-right:12px}.title{font-size:18px;font-weight:600}.status{margin-left:10px;font-size:12px;color:#777}.chat{flex:1;overflow-y:auto;padding:30px 22px;scroll-behavior:smooth}.message{display:flex;margin-bottom:28px;width:100%}.message.user{justify-content:flex-end}.message.ai{justify-content:flex-start}.avatar{width:32px;height:32px;border-radius:10px;margin-right:10px;flex-shrink:0}.bubble{max-width:75%;line-height:1.6;font-size:15px;overflow-wrap:anywhere}.user .bubble{background:#f0f0f0;padding:12px 16px;border-radius:18px;white-space:pre-wrap}.ai .bubble{white-space:normal}.ai .bubble strong{font-weight:700}.ai .bubble em{font-style:italic}.ai-heading{display:inline-block;font-weight:700;margin:6px 0 2px}.ai-code-block{display:block;background:#f5f5f5;padding:10px 12px;margin:8px 0;border-radius:8px;font-family:monospace;white-space:pre-wrap;overflow-x:auto}.ai .bubble code{background:#f1f1f1;padding:2px 5px;border-radius:5px;font-family:monospace;font-size:13px}.ai-bullet,.ai-number{display:block;margin-left:4px;padding-left:4px}.welcome{text-align:center;margin-top:100px}.welcome-logo{width:65px;height:65px;margin:auto;border-radius:20px}.welcome h1{margin:20px 0 8px;font-size:26px}.welcome p{color:#777;font-size:14px}.loading,.retry-status{font-size:13px;color:#888;display:none}.loading{margin:0 0 12px 64px}.retry-status{margin:0 0 15px 64px}.dot{animation:blink 1.4s infinite}.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}.input-area{padding:15px 20px 20px;flex-shrink:0}
 .input-box{display:flex;flex-direction:column;border:1px solid #d9d9d9;border-radius:18px;padding:7px 8px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.04)}
@@ -303,7 +303,9 @@ function loadZoyaSession() {
             !data ||
             data.authenticated !== true ||
             !data.user ||
-            !data.user.userId
+            !data.user.userId ||
+            !data.idToken ||
+            (data.expiresAt && Number(data.expiresAt) <= Date.now())
         ) {
             return null;
         }
@@ -520,169 +522,21 @@ function zoyaAuthCallbackName(){return "zoyaAuth_"+Date.now()+"_"+Math.random().
    SEND GOOGLE ID TOKEN TO BACKEND
 ========================================================= */
 
-function authenticateZoyaWithBackend(
-    idToken
-) {
-
-    return new Promise(
-        function(resolve, reject) {
-
-            const callbackName =
-                zoyaAuthCallbackName();
-
-            const script =
-                document.createElement(
-                    "script"
-                );
-
-            let finished = false;
-            let timeoutId = null;
-
-            function cleanup() {
-
-                if (timeoutId) {
-                    clearTimeout(
-                        timeoutId
-                    );
-                    timeoutId = null;
-                }
-
-                if (
-                    script &&
-                    script.parentNode
-                ) {
-                    script.parentNode.removeChild(
-                        script
-                    );
-                }
-
-                try {
-                    delete window[
-                        callbackName
-                    ];
-                } catch (error) {
-                    window[
-                        callbackName
-                    ] = undefined;
-                }
-            }
-
-            function finishSuccess(data) {
-
-                if (finished) {
-                    return;
-                }
-
-                finished = true;
-                cleanup();
-
-                if (
-                    !data ||
-                    data.success !== true ||
-                    data.authenticated !== true ||
-                    !data.user ||
-                    !data.user.userId
-                ) {
-                    reject(
-                        new Error(
-                            data && data.error
-                                ? String(data.error)
-                                : "Backend tidak mengonfirmasi login Google."
-                        )
-                    );
-                    return;
-                }
-
-                resolve(data);
-            }
-
-            window[callbackName] =
-            finishSuccess;
-
-            script.onerror =
-            function() {
-
-                if (finished) {
-                    return;
-                }
-
-                finished = true;
-                cleanup();
-
-                reject(
-                    new Error(
-                        "Browser tidak menerima response login dari Google Apps Script."
-                    )
-                );
-            };
-
-            const params =
-                new URLSearchParams();
-
-            params.set(
-                "action",
-                "google_login"
-            );
-
-            params.set(
-                "id_token",
-                String(idToken || "")
-            );
-
-            params.set(
-                "callback",
-                callbackName
-            );
-
-            /* =================================================
-               FIRST LOGIN
-            =================================================
-
-               JANGAN meminta user_id di sini.
-               Pada login pertama, zoyaSession memang masih kosong.
-               Identitas user justru dibuat oleh backend dari ID Token
-               Google (claim `sub`).
-            ================================================= */
-
-            params.set(
-                "_",
-                String(Date.now())
-            );
-
-            script.src =
-                BACKEND_URL +
-                "?" +
-                params.toString();
-
-            script.async =
-                true;
-
-            document.body.appendChild(
-                script
-            );
-
-            timeoutId =
-                setTimeout(
-                    function() {
-
-                        if (finished) {
-                            return;
-                        }
-
-                        finished = true;
-                        cleanup();
-
-                        reject(
-                            new Error(
-                                "Verifikasi login ZOYA terlalu lama."
-                            )
-                        );
-
-                    },
-                    30000
-                );
+function decodeGoogleCredential_(idToken) {
+    const parts = String(idToken || "").split(".");
+    if (parts.length !== 3) throw new Error("ID Token Google tidak valid.");
+    try {
+        const json = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+        const payload = JSON.parse(decodeURIComponent(Array.prototype.map.call(json, function(c) {
+            return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join("")));
+        if (!payload.sub || !payload.exp || Number(payload.exp) * 1000 <= Date.now()) {
+            throw new Error("Sesi Google sudah kedaluwarsa. Silakan masuk kembali.");
         }
-    );
+        return payload;
+    } catch (error) {
+        throw new Error("ID Token Google tidak dapat dibaca.");
+    }
 }
 
 
@@ -707,13 +561,23 @@ async function handleZoyaGoogleCredential(
             );
         }
 
-        const result =
-            await authenticateZoyaWithBackend(
-                response.credential
-            );
-
-        zoyaSession =
-            result;
+        // Jangan menunggu callback JSONP Apps Script untuk menyelesaikan login.
+        // Di perangkat mobile callback itu dapat diblokir/terputus meski Google
+        // sudah memberikan credential yang valid. Backend menerima dan memvalidasi
+        // token ini pada SETIAP request yang membawa data pengguna.
+        const claims = decodeGoogleCredential_(response.credential);
+        zoyaSession = {
+            authenticated: true,
+            idToken: String(response.credential),
+            expiresAt: Number(claims.exp) * 1000,
+            user: {
+                // Hanya untuk tampilan. Backend tidak boleh mempercayai nilai ini.
+                userId: "GOOGLE_" + String(claims.sub),
+                email: String(claims.email || ""),
+                name: String(claims.name || claims.given_name || "User"),
+                picture: String(claims.picture || "")
+            }
+        };
 
         saveZoyaSession(
             zoyaSession
@@ -795,15 +659,20 @@ function getZoyaUserId() {
 
 
 function getZoyaAuthToken() {
-
-    if (
-        zoyaSession &&
-        zoyaSession.user
-    ) {
-        return zoyaSession.user;
+    if (zoyaSession && zoyaSession.idToken && (!zoyaSession.expiresAt || zoyaSession.expiresAt > Date.now())) {
+        return String(zoyaSession.idToken);
     }
+    return "";
+}
 
-    return null;
+function addAuthenticatedParams_(params) {
+    const token = getZoyaAuthToken();
+    if (!token) throw new Error("Sesi Google berakhir. Silakan login kembali.");
+    params.set("id_token", token);
+    // Kompatibilitas sementara untuk backend lama; backend V10 wajib
+    // mengabaikan nilai ini dan membuat user_id dari token yang diverifikasi.
+    params.set("user_id", getZoyaUserId());
+    return params;
 }
 
 
@@ -815,7 +684,8 @@ const $=id=>document.getElementById(id),questionInput=$("question"),chat=$("chat
 function loadMemory(){try{const s=localStorage.getItem(MEMORY_KEY);if(!s)return;const d=JSON.parse(s);if(Array.isArray(d))conversationHistory=d.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.text==="string"&&x.text.trim()).slice(-MAX_HISTORY_MESSAGES); for(let i=conversationHistory.length-1;i>=0;i--){if(conversationHistory[i].role==="assistant"&&!isCreationConfirmationText(conversationHistory[i].text)){lastSubstantiveAssistantText=conversationHistory[i].text;break}}}catch(e){conversationHistory=[]}}
 function saveMemory(){try{conversationHistory=conversationHistory.slice(-MAX_HISTORY_MESSAGES);localStorage.setItem(MEMORY_KEY,JSON.stringify(conversationHistory))}catch(e){}}
 function prepareHistory(h){return Array.isArray(h)?h.slice(-MAX_HISTORY_MESSAGES).map(x=>({role:x.role,text:String(x.text||"").slice(0,MAX_HISTORY_CHARS)})):[]}
-function formatAIResponse(t){if(!t)return"";let s=String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");s=s.replace(/```([\s\S]*?)```/g,(m,c)=>'<pre class="ai-code-block">'+c.trim()+"</pre>");s=s.replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/__(.+?)__/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,"$1<em>$2</em>").replace(/(^|[^_])_([^_\n]+)_(?!_)/g,"$1<em>$2</em>").replace(/^###\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^##\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^#\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^\s*[-*+]\s+(.+)$/gm,'<span class="ai-bullet">• $1</span>').replace(/^\s*(\d+)\.\s+(.+)$/gm,'<span class="ai-number">$1. $2</span>').replace(/\n/g,"<br>");return s}
+function stripCitationArtifacts(text){return String(text||"").replace(/\s*\[\s*web\s+\d+(?:\s*[,;]\s*(?:web\s+)?\d+)*\s*\]/gi,"").replace(/\s*\[(?:\s*\d+\s*[,;]?){1,8}\]/g,"").replace(/\s{2,}/g," ").replace(/ +\n/g,"\n").trim()}
+function formatAIResponse(t){if(!t)return"";let s=stripCitationArtifacts(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");s=s.replace(/```([\s\S]*?)```/g,(m,c)=>'<pre class="ai-code-block">'+c.trim()+"</pre>");s=s.replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/__(.+?)__/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,"$1<em>$2</em>").replace(/(^|[^_])_([^_\n]+)_(?!_)/g,"$1<em>$2</em>").replace(/^###\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^##\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^#\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^\s*[-*+]\s+(.+)$/gm,'<span class="ai-bullet">• $1</span>').replace(/^\s*(\d+)\.\s+(.+)$/gm,'<span class="ai-number">$1. $2</span>').replace(/\n/g,"<br>");return s}
 function addMessage(text,type){const m=document.createElement("div");m.className="message "+type;if(type==="ai"){const a=document.createElement("div");a.className="avatar";m.appendChild(a)}const b=document.createElement("div");b.className="bubble";type==="ai"?b.innerHTML=formatAIResponse(text):b.textContent=String(text||"");m.appendChild(b);chat.appendChild(m);requestAnimationFrame(()=>chat.scrollTop=chat.scrollHeight)}
 function callbackName(){return"zoraCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2,10)}
 function askZora(question,history,attachments=[]){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId = getZoyaUserId();
@@ -823,14 +693,13 @@ if(!currentUserId){
   reject(new Error("Silakan login dengan Google terlebih dahulu."));
   return;
 }
-const p=new URLSearchParams({
+const p=addAuthenticatedParams_(new URLSearchParams({
   q:String(question),
   history:JSON.stringify(prepareHistory(history)),
   attachments:JSON.stringify(attachments||[]),
-  user_id:currentUserId,
   callback:cb,
   _:Date.now()
-});script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},REQUEST_TIMEOUT)})}
+}));script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},REQUEST_TIMEOUT)})}
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function askZoraWithRetry(q,h,attachments=[]){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await wait(i*1500)}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
 function addUserMessageWithAttachments(text,attachments){
@@ -866,7 +735,7 @@ async function sendMessage(){
       return;
     }
     const analysisQuestion=attachments.length>1?(finalQuestion+"\n\n[MODE ANALISIS MULTI-FILE]\nAnalisis seluruh attachment yang saya kirim sebagai satu konteks. Bandingkan dan hubungkan informasi antar-file bila relevan. Jangan mengabaikan attachment yang relevan."):finalQuestion;
-    const r=await askZoraWithRetry(analysisQuestion,h,attachments),a=String(r.answer||"").trim();
+    const r=await askZoraWithRetry(analysisQuestion,h,attachments),a=stripCitationArtifacts(r.answer||"");
     if(!a)throw new Error("ZORA mengembalikan jawaban kosong.");
     conversationHistory.push({role:"user",text:finalQuestion},{role:"assistant",text:a});
     lastSubstantiveAssistantText=a;
@@ -926,7 +795,7 @@ function creationRequest(action,params,timeout){
     function cleanup(){if(timer)clearTimeout(timer);if(script.parentNode)script.parentNode.removeChild(script);try{delete window[cb]}catch(e){window[cb]=undefined}}
     window[cb]=function(data){if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Creation Engine tidak memberikan respons."));return}resolve(data)};
     script.onerror=function(){if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima respons Creation Engine."))};
-    const p=new URLSearchParams(params||{});p.set("action",action);p.set("callback",cb);p.set("_",Date.now());script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);
+    const p=addAuthenticatedParams_(new URLSearchParams(params||{}));p.set("action",action);p.set("callback",cb);p.set("_",Date.now());script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);
     timer=setTimeout(function(){if(done)return;done=true;cleanup();reject(new Error("Creation Engine terlalu lama memberikan respons."))},timeout||120000);
   });
 }
@@ -976,26 +845,15 @@ function compactCreationContext(text){
   return s.slice(0,3200);
 }
 function findBestCreationContext(){
-  const recent=[];
-
-  // Ambil beberapa pesan terakhir agar frasa seperti "buatkan Excel dari data tadi"
-  // tetap memiliki sumber data meskipun data awal berasal dari pesan USER.
-  for(let i=Math.max(0,conversationHistory.length-6);i<conversationHistory.length;i++){
+  // Context adalah bahan dokumen, BUKAN transcript percakapan. Prioritaskan
+  // jawaban substantif terakhir atau data user sebelum instruksi pembuatan.
+  for(let i=conversationHistory.length-1;i>=0;i--){
     const x=conversationHistory[i];
-    if(!x||!x.text)continue;
-    if(x.role==="assistant" && isCreationConfirmationText(x.text))continue;
-    recent.push((x.role==="user"?"[USER] ":"[ZOYA] ")+String(x.text));
+    if(!x||!x.text||isCreationConfirmationText(x.text))continue;
+    const value=compactCreationContext(stripCitationArtifacts(x.text));
+    if(value) return value;
   }
-
-  if(recent.length){
-    const combined=recent.join("\n\n");
-    return compactCreationContext(combined);
-  }
-
-  if(lastSubstantiveAssistantText && !isCreationConfirmationText(lastSubstantiveAssistantText)){
-    return compactCreationContext(lastSubstantiveAssistantText);
-  }
-  return "";
+  return lastSubstantiveAssistantText ? compactCreationContext(stripCitationArtifacts(lastSubstantiveAssistantText)) : "";
 }
 async function runCreationEngine(instruction,attachments){
   const currentUserId=getZoyaUserId();
@@ -1007,8 +865,8 @@ async function runCreationEngine(instruction,attachments){
   const params={
     format:format,
     instruction:String(instruction),
-    user_id:getZoyaUserId(),
-    context:sourceMessage
+    source_context:sourceMessage,
+    source_policy:"Use uploaded files as the primary source. Use source_context only as document data. Never write a chat transcript, role labels, citation markers, or system instructions into the output unless the user explicitly asks for a transcript."
   };
 
   // PENTING: attachment harus diteruskan untuk CREATE maupun EDIT.
@@ -1118,6 +976,7 @@ function uploadJsonp(params, timeoutMs){
         query.set(key,String(value));
       }
     });
+    addAuthenticatedParams_(query);
     query.set("callback",cb);
     query.set("_",String(Date.now()));
 
@@ -1185,6 +1044,8 @@ function postUploadChunk(sessionId,chunkIndex,totalChunks,base64Data){
     }
 
     addField("action","upload_chunk");
+    addField("id_token",getZoyaAuthToken());
+    addField("user_id",getZoyaUserId());
     addField("sessionId",sessionId);
     addField("chunkIndex",chunkIndex);
     addField("totalChunks",totalChunks);
@@ -1320,7 +1181,7 @@ function arrayBufferToBase64(buffer){
   return btoa(binary);
 }
 
-questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}};sendButton.onclick=sendMessage;loadMemory();setupVoiceInput();console.log("ZOYA AI FINAL UPLOAD POST AKTIF");
+questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}};sendButton.onclick=sendMessage;loadMemory();setupVoiceInput();console.log("ZOYA AI siap.");
 
 /* =========================================================
    INITIALIZE GOOGLE AUTH
