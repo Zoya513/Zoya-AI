@@ -1,0 +1,53 @@
+name: ZOYA Safe Auth Patch
+on:
+  push:
+    branches:
+      - fix/zoya-auth-safe-v3
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/zoya-auth-safe-v3
+          fetch-depth: 0
+      - name: Patch auth safely
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old='''function saveSession(){if(!currentUser||!authToken)return;try{localStorage.setItem(SESSION_KEY,JSON.stringify({token:authToken,user:currentUser,lastActivity:Date.now()}))}catch(e){}}\nfunction clearSession(){try{localStorage.removeItem(SESSION_KEY)}catch(e){}}\nfunction restoreSession(){try{const raw=localStorage.getItem(SESSION_KEY);if(!raw)return false;const s=JSON.parse(raw);if(!s||!s.token||!s.user||!s.user.userId)return false;if(Date.now()-Number(s.lastActivity||0)>=SESSION_TTL){clearSession();return false}authToken=String(s.token);currentUser=s.user;setLoggedInUser(currentUser);saveSession();return true}catch(e){clearSession();return false}}\nfunction touchSession(){if(authReady)saveSession()}'''
+          new='''function saveSession(){if(!currentUser)return;try{localStorage.setItem(SESSION_KEY,JSON.stringify({user:currentUser,lastActivity:Date.now()}))}catch(e){}}\nfunction clearSession(){try{localStorage.removeItem(SESSION_KEY)}catch(e){}}\nfunction restoreSession(){try{const raw=localStorage.getItem(SESSION_KEY);if(!raw)return false;const s=JSON.parse(raw);if(!s||!s.user||!s.user.userId)return false;if(Date.now()-Number(s.lastActivity||0)>=SESSION_TTL){clearSession();return false}currentUser=s.user;return true}catch(e){clearSession();return false}}\nfunction touchSession(){if(currentUser)saveSession()}'''
+          if old not in s: raise SystemExit('session block not found')
+          s=s.replace(old,new,1)
+          old2='''async function handleGoogleCredential(response){hideAuthError();const token=String(response&&response.credential||'');if(!token){showAuthError('Google tidak mengirim ID Token.');return}try{const result=await validateGoogleLogin(token);authToken=token;const payload=decodeJwtPayload(token)||{};const user=result.user||{};currentUser={userId:String(user.userId||payload.sub||''),email:String(user.email||payload.email||''),name:String(user.name||payload.name||''),picture:String(user.picture||payload.picture||'')};if(!currentUser.userId)throw new Error('Google User ID tidak ditemukan.');localStorage.setItem('ZOYA_AI_GOOGLE_USER',JSON.stringify({email:currentUser.email,name:currentUser.name,picture:currentUser.picture,userId:currentUser.userId}));saveSession();setLoggedInUser(currentUser);conversationHistory=[];lastSubstantiveAssistantText='';loadMemory();setupVoiceInput();refreshSendState()}catch(e){authToken='';currentUser=null;authReady=false;setLoggedInUser(null);showAuthError(e.message||'Google login gagal.')}}'''
+          new2='''async function handleGoogleCredential(response){hideAuthError();const token=String(response&&response.credential||'');if(!token){showAuthError('Google tidak mengirim ID Token.');return}try{const payload=decodeJwtPayload(token)||{};if(!payload.sub)throw new Error('Google User ID tidak ditemukan.');authToken=token;currentUser={userId:String(payload.sub),email:String(payload.email||''),name:String(payload.name||''),picture:String(payload.picture||'')};saveSession();localStorage.setItem('ZOYA_AI_GOOGLE_USER',JSON.stringify(currentUser));setLoggedInUser(currentUser);conversationHistory=[];lastSubstantiveAssistantText='';loadMemory();setupVoiceInput();refreshSendState();validateGoogleLogin(token).then(function(result){if(result&&result.user){currentUser={userId:String(result.user.userId||currentUser.userId),email:String(result.user.email||currentUser.email),name:String(result.user.name||currentUser.name),picture:String(result.user.picture||currentUser.picture)};saveSession()}}).catch(function(error){console.warn('ZOYA background Google validation:',error)})}catch(e){authToken='';currentUser=null;authReady=false;clearSession();setLoggedInUser(null);showAuthError(e.message||'Google login gagal.')}}'''
+          if old2 not in s: raise SystemExit('credential block not found')
+          s=s.replace(old2,new2,1)
+          old3='''function initGoogleLogin(){function waitForGoogle(){if(window.google&&google.accounts&&google.accounts.id){google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogleCredential,auto_select:false,cancel_on_tap_outside:false});if(googleLoginButton)google.accounts.id.renderButton(googleLoginButton,{type:'standard',theme:'outline',size:'large',text:'signin_with',shape:'rectangular',logo_alignment:'left',width:300});return}setTimeout(waitForGoogle,100)}waitForGoogle()}'''
+          new3='''function initGoogleLogin(){function waitForGoogle(){if(window.google&&google.accounts&&google.accounts.id){const hasStoredSession=!!restoreSession();google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogleCredential,auto_select:hasStoredSession,use_fedcm_for_button:true,button_auto_select:hasStoredSession,cancel_on_tap_outside:false});if(googleLoginButton)google.accounts.id.renderButton(googleLoginButton,{type:'standard',theme:'outline',size:'large',text:'signin_with',shape:'rectangular',logo_alignment:'left',width:300,use_fedcm_for_button:true,button_auto_select:hasStoredSession});return}setTimeout(waitForGoogle,100)}waitForGoogle()}'''
+          if old3 not in s: raise SystemExit('google init block not found')
+          s=s.replace(old3,new3,1)
+          old4='''questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}};sendButton.onclick=sendMessage;authLogout.onclick=logoutGoogle;if(!restoreSession()){setLoggedInUser(null);initGoogleLogin()}else{loadMemory();setupVoiceInput();refreshSendState();initGoogleLogin()}window.addEventListener("pointerdown",touchSession,{passive:true});window.addEventListener("keydown",touchSession,{passive:true});console.log("ZOYA AI V12 + PERSISTENT 5-DAY SESSION + NATURAL FILE INTENT");'''
+          new4='''questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}};sendButton.onclick=sendMessage;authLogout.onclick=logoutGoogle;const hasSession=restoreSession();if(hasSession){setLoggedInUser(null);loadMemory();setupVoiceInput();refreshSendState();initGoogleLogin()}else{setLoggedInUser(null);initGoogleLogin()}window.addEventListener("pointerdown",touchSession,{passive:true});window.addEventListener("keydown",touchSession,{passive:true});console.log("ZOYA AI V12 + SAFE 5-DAY SESSION + NATURAL FILE INTENT");'''
+          if old4 not in s: raise SystemExit('init block not found')
+          s=s.replace(old4,new4,1)
+          p.write_text(s,encoding='utf-8')
+      - name: Validate JavaScript
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'); const html=fs.readFileSync('index.html','utf8'); const m=html.match(/<script>([\s\S]*)<\/script>/); if(!m) throw new Error('script block not found'); fs.writeFileSync('/tmp/zoya.js',m[1]);
+          NODE
+          node --check /tmp/zoya.js
+      - name: Commit and force update branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix Chrome auth fallback and safe 5-day session'
+          git push --force origin fix/zoya-auth-safe-v3
