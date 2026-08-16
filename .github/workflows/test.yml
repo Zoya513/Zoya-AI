@@ -1,0 +1,12 @@
+name: Test workflow
+on:
+  push:
+    branches: ['fix/zoya-mobile-ux-v2']
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo OK
