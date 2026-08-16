@@ -17,6 +17,17 @@
   .zora{min-height:0;}
   .chat{min-height:0;padding-bottom:120px;}
   .input-area{position:fixed;left:0;right:0;bottom:0;z-index:1000;background:#fff;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));}
+  .loading,.retry-status{display:none;position:fixed;left:0;right:0;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:1001;margin:0;padding:0 16px 8px;text-align:center;background:linear-gradient(to top,rgba(255,255,255,.98),rgba(255,255,255,.92),rgba(255,255,255,0));pointer-events:none;}
+  .loading{height:36px;padding-top:8px;}
+  .retry-status{height:36px;padding-top:8px;}
+}
+
+/* ZOYA MOBILE OVERSCROLL RESTORE */
+@media(max-width:600px){
+  html,body{overflow:auto;overscroll-behavior-y:auto;-webkit-overflow-scrolling:touch;}
+  body{min-height:100%;}
+  .zora{position:relative;min-height:100dvh;height:auto;overflow:visible;}
+  .chat{overflow-y:auto;overscroll-behavior-y:auto;-webkit-overflow-scrolling:touch;}
 }
 </style>
 </head>
@@ -43,7 +54,7 @@ function setLoggedInUser(user){currentUser=user||null;authReady=!!(currentUser&&
 function decodeJwtPayload(token){try{const part=String(token||"").split('.')[1];if(!part)return null;const normalized=part.replace(/-/g,'+').replace(/_/g,'/');const json=decodeURIComponent(atob(normalized).split('').map(function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)}).join(''));return JSON.parse(json)}catch(e){return null}}
 function authCallbackName(){return"zoraAuth_"+Date.now()+"_"+Math.random().toString(36).slice(2,10)}
 function validateGoogleLogin(idToken){return new Promise(function(resolve,reject){const cb=authCallbackName(),script=document.createElement('script');let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);if(script.parentNode)script.parentNode.removeChild(script);try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=function(data){if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):'Google login tidak dapat divalidasi.'));return}resolve(data)};script.onerror=function(){if(done)return;done=true;cleanup();reject(new Error('Browser tidak menerima respons login dari Google Apps Script.'))};const p=new URLSearchParams({action:'google_login',id_token:String(idToken||''),callback:cb,_:Date.now()});script.src=BACKEND_URL+'?'+p.toString();script.async=true;document.body.appendChild(script);timer=setTimeout(function(){if(done)return;done=true;cleanup();reject(new Error('Validasi login terlalu lama.'))},30000)})}
-async function handleGoogleCredential(response){hideAuthError();const token=String(response&&response.credential||"");if(!token){showAuthError('Google tidak mengirim ID Token.');return}const payload=decodeJwtPayload(token)||{};const localUser={userId:String(payload.sub||''),email:String(payload.email||''),name:String(payload.name||payload.given_name||''),picture:String(payload.picture||'')};if(!localUser.userId){showAuthError('Google User ID tidak ditemukan.');return}authToken=token;currentUser=localUser;localStorage.setItem('ZOYA_AI_GOOGLE_USER',JSON.stringify({email:localUser.email,name:localUser.name,picture:localUser.picture,userId:localUser.userId}));authReady=false;if(authScreen)authScreen.style.display='none';if(authUser)authUser.style.display='flex';if(authUserName)authUserName.textContent=localUser.name||localUser.email;if(authUserAvatar){authUserAvatar.src=localUser.picture||'';authUserAvatar.style.display=localUser.picture?'block':'none'}conversationHistory=[];lastSubstantiveAssistantText='';loadMemory();setupVoiceInput();refreshSendState();try{const result=await validateGoogleLogin(token);const user=result&&result.user||{};currentUser={userId:String(user.userId||localUser.userId),email:String(user.email||localUser.email),name:String(user.name||localUser.name),picture:String(user.picture||localUser.picture)};authReady=true;saveSession();setLoggedInUser(currentUser);refreshSendState()}catch(e){authToken='';currentUser=null;authReady=false;setLoggedInUser(null);showAuthError(e.message||'Google login gagal.')}}
+async function handleGoogleCredential(response){hideAuthError();const token=String(response&&response.credential||"");if(!token){showAuthError('Google tidak mengirim ID Token.');return}authToken=token;const payload=decodeJwtPayload(token)||{};const localUser={userId:String(payload.sub||''),email:String(payload.email||''),name:String(payload.name||payload.given_name||''),picture:String(payload.picture||'')};if(!localUser.userId){showAuthError('Google User ID tidak ditemukan.');return}currentUser=localUser;authReady=true;saveSession();setLoggedInUser(currentUser);conversationHistory=[];lastSubstantiveAssistantText='';loadMemory();setupVoiceInput();refreshSendState();validateGoogleLogin(token).then(function(result){const user=result&&result.user||{};currentUser={userId:String(user.userId||localUser.userId),email:String(user.email||localUser.email),name:String(user.name||localUser.name),picture:String(user.picture||localUser.picture)};saveSession();setLoggedInUser(currentUser)}).catch(function(e){console.warn('ZOYA Google login validation background:',e);localStorage.setItem('ZOYA_AI_GOOGLE_USER',JSON.stringify({email:localUser.email,name:localUser.name,picture:localUser.picture,userId:localUser.userId}));});}
 function initGoogleLogin(){function waitForGoogle(){if(window.google&&google.accounts&&google.accounts.id){google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogleCredential,auto_select:false,cancel_on_tap_outside:false});if(googleLoginButton)google.accounts.id.renderButton(googleLoginButton,{type:'standard',theme:'outline',size:'large',text:'signin_with',shape:'rectangular',logo_alignment:'left',width:300});return}setTimeout(waitForGoogle,100)}waitForGoogle()}
 function logoutGoogle(){try{if(window.google&&google.accounts&&google.accounts.id){google.accounts.id.disableAutoSelect();if(currentUser&&currentUser.email)google.accounts.id.revoke(currentUser.email,function(){})}}catch(e){}authToken='';currentUser=null;authReady=false;conversationHistory=[];lastSubstantiveAssistantText='';localStorage.removeItem('ZOYA_AI_GOOGLE_USER');clearSession();setLoggedInUser(null);hideAuthError();if(questionInput)questionInput.value='';if(chat)chat.innerHTML='<div class="welcome" id="welcome"><div class="welcome-logo"></div><h1>Apa yang bisa saya bantu?</h1><p>Tanyakan sesuatu kepada ZOYA AI</p></div>'}
 function loadMemory(){try{const s=localStorage.getItem(userMemoryKey());if(!s)return;const d=JSON.parse(s);if(Array.isArray(d))conversationHistory=d.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.text==="string"&&x.text.trim()).slice(-MAX_HISTORY_MESSAGES);for(let i=conversationHistory.length-1;i>=0;i--){if(conversationHistory[i].role==="assistant"&&!isCreationConfirmationText(conversationHistory[i].text)){lastSubstantiveAssistantText=conversationHistory[i].text;break}}}catch(e){conversationHistory=[]}}
@@ -79,53 +90,16 @@ async function waitForChunk(sessionId,chunkIndex){const maxAttempts=30;for(let a
 function arrayBufferToBase64(buffer){const bytes=new Uint8Array(buffer),sliceSize=0x8000;let binary="";for(let i=0;i<bytes.length;i+=sliceSize){const slice=bytes.subarray(i,Math.min(i+sliceSize,bytes.length));binary+=String.fromCharCode.apply(null,slice)}return btoa(binary)}
 questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}};sendButton.onclick=sendMessage;authLogout.onclick=logoutGoogle;if(!restoreSession()){setLoggedInUser(null);initGoogleLogin()}else{loadMemory();setupVoiceInput();refreshSendState();initGoogleLogin()}window.addEventListener("pointerdown",touchSession,{passive:true});window.addEventListener("keydown",touchSession,{passive:true});console.log("ZOYA AI V12 + PERSISTENT 5-DAY SESSION + NATURAL FILE INTENT");
 </script>
-
 <script>
 /* ZOYA MOBILE COMPOSER FIX 2026-08-16 */
 (function(){
-  const input = document.getElementById('question');
-  const composer = document.querySelector('.input-area');
-  const chat = document.getElementById('chat');
-  if(!input || !composer || !chat) return;
-
-  const vv = window.visualViewport;
-  let raf = 0;
-
-  function syncMobileKeyboard(){
-    cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(function(){
-      const keyboard = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
-      composer.style.setProperty('--zora-keyboard-offset', keyboard + 'px');
-      if(keyboard > 80){
-        composer.style.bottom = keyboard + 'px';
-      }else{
-        composer.style.bottom = '0px';
-      }
-      const h = composer.getBoundingClientRect().height || 90;
-      chat.style.paddingBottom = (h + 24) + 'px';
-    });
-  }
-
-  function keepLatestVisible(){
-    requestAnimationFrame(function(){
-      const last = chat.lastElementChild;
-      if(last) last.scrollIntoView({block:'nearest',inline:'nearest'});
-      syncMobileKeyboard();
-    });
-  }
-
-  input.addEventListener('focus', function(){
-    syncMobileKeyboard();
-    setTimeout(keepLatestVisible, 120);
-    setTimeout(keepLatestVisible, 350);
-  }, {passive:true});
-
-  if(vv){
-    vv.addEventListener('resize', syncMobileKeyboard);
-    vv.addEventListener('scroll', syncMobileKeyboard);
-  }
-  window.addEventListener('resize', syncMobileKeyboard);
-  syncMobileKeyboard();
+  const input=document.getElementById('question'),composer=document.querySelector('.input-area'),chat=document.getElementById('chat');
+  if(!input||!composer||!chat)return;
+  const vv=window.visualViewport;let raf=0;
+  function syncMobileKeyboard(){cancelAnimationFrame(raf);raf=requestAnimationFrame(function(){const keyboard=vv?Math.max(0,window.innerHeight-vv.height-vv.offsetTop):0;composer.style.setProperty('--zora-keyboard-offset',keyboard+'px');if(keyboard>80)composer.style.bottom=keyboard+'px';else composer.style.bottom='0px';const h=composer.getBoundingClientRect().height||90;chat.style.paddingBottom=(h+24)+'px';});}
+  function keepLatestVisible(){requestAnimationFrame(function(){const last=chat.lastElementChild;if(last)last.scrollIntoView({block:'nearest',inline:'nearest'});syncMobileKeyboard();});}
+  input.addEventListener('focus',function(){syncMobileKeyboard();setTimeout(keepLatestVisible,120);setTimeout(keepLatestVisible,350);},{passive:true});
+  if(vv){vv.addEventListener('resize',syncMobileKeyboard);vv.addEventListener('scroll',syncMobileKeyboard);}window.addEventListener('resize',syncMobileKeyboard);syncMobileKeyboard();
 })();
 </script>
 </body>
