@@ -1,0 +1,75 @@
+name: ZOYA Safe Frontend Patch
+on:
+  push:
+    branches: ["fix/session-analysis-chrome"]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch session and analysis behavior
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old = 'const MEMORY_KEY="ZORA_AI_MEMORY_V11",MAX_HISTORY_MESSAGES=8,MAX_HISTORY_CHARS=1200,MAX_RETRIES=3,REQUEST_TIMEOUT=45000;'
+          new = 'const MEMORY_KEY="ZORA_AI_MEMORY_V11",SESSION_KEY="ZOYA_AI_SESSION_V12",SESSION_TTL=5*24*60*60*1000,MAX_HISTORY_MESSAGES=8,MAX_HISTORY_CHARS=1200,MAX_RETRIES=3,REQUEST_TIMEOUT=45000;'
+          if old not in s:
+              raise SystemExit('MEMORY_KEY anchor not found')
+          s=s.replace(old,new,1)
+
+          old = 'function setLoggedInUser(user){currentUser=user||null;authReady=!!(currentUser&&authToken);if(authScreen)authScreen.style.display=authReady?"none":"flex";if(authUser)authUser.style.display=authReady?"flex":"none";if(authUserName)authUserName.textContent=(user&&user.name)||((user&&user.email)||"");if(authUserAvatar){authUserAvatar.src=(user&&user.picture)||"";authUserAvatar.style.display=(user&&user.picture)?"block":"none"}}'
+          new = '''function saveSession(){if(!currentUser||!authToken)return;try{localStorage.setItem(SESSION_KEY,JSON.stringify({token:authToken,user:currentUser,lastActivity:Date.now()}))}catch(e){}}\nfunction clearSession(){try{localStorage.removeItem(SESSION_KEY)}catch(e){}}\nfunction restoreSession(){try{const raw=localStorage.getItem(SESSION_KEY);if(!raw)return false;const s=JSON.parse(raw);if(!s||!s.token||!s.user||!s.user.userId)return false;if(Date.now()-Number(s.lastActivity||0)>=SESSION_TTL){clearSession();return false}authToken=String(s.token);currentUser=s.user;setLoggedInUser(currentUser);saveSession();return true}catch(e){clearSession();return false}}\nfunction touchSession(){if(authReady)saveSession()}\nfunction setLoggedInUser(user){currentUser=user||null;authReady=!!(currentUser&&authToken);if(authScreen)authScreen.style.display=authReady?"none":"flex";if(authUser)authUser.style.display=authReady?"flex":"none";if(authUserName)authUserName.textContent=(user&&user.name)||((user&&user.email)||"");if(authUserAvatar){authUserAvatar.src=(user&&user.picture)||"";authUserAvatar.style.display=(user&&user.picture)?"block":"none"}}'''
+          if old not in s:
+              raise SystemExit('setLoggedInUser anchor not found')
+          s=s.replace(old,new,1)
+
+          old = 'localStorage.setItem(\'ZOYA_AI_GOOGLE_USER\',JSON.stringify({email:currentUser.email,name:currentUser.name,picture:currentUser.picture,userId:currentUser.userId}));setLoggedInUser(currentUser);conversationHistory=[];'
+          new = 'localStorage.setItem(\'ZOYA_AI_GOOGLE_USER\',JSON.stringify({email:currentUser.email,name:currentUser.name,picture:currentUser.picture,userId:currentUser.userId}));saveSession();setLoggedInUser(currentUser);conversationHistory=[];'
+          if old not in s:
+              raise SystemExit('login storage anchor not found')
+          s=s.replace(old,new,1)
+
+          old = 'authToken=\'\';currentUser=null;authReady=false;conversationHistory=[];lastSubstantiveAssistantText=\'\';localStorage.removeItem(\'ZOYA_AI_GOOGLE_USER\');'
+          new = 'authToken=\'\';currentUser=null;authReady=false;conversationHistory=[];lastSubstantiveAssistantText=\'\';localStorage.removeItem(\'ZOYA_AI_GOOGLE_USER\');clearSession();'
+          if old not in s:
+              raise SystemExit('logout anchor not found')
+          s=s.replace(old,new,1)
+
+          old = 'function sendMessage(){'
+          if old in s:
+              s=s.replace(old,'function sendMessage(){touchSession();',1)
+          else:
+              old='async function sendMessage(){'
+              if old not in s: raise SystemExit('sendMessage anchor not found')
+              s=s.replace(old,'async function sendMessage(){touchSession();',1)
+
+          old = 'function isCreationRequest(text,attachments){const q=String(text||"").toLowerCase().trim();if(!q)return false;'
+          new = '''function isCreationRequest(text,attachments){const q=String(text||"").toLowerCase().trim();if(!q)return false;const hasAttachment=Array.isArray(attachments)&&attachments.length>0;const naturalAnalysis=/^(analisis|analisa|cek|check|lihat|lihat ini|coba lihat|coba cek|jelaskan|jelasin|bahas|review|telaah|menurut kamu|menurutmu|ini gimana|gimana ini|apa ini|kenapa ini|tolong lihat|tolong cek|tolong analisis|tolong analisa)(\\s|$)/i;if(hasAttachment&&naturalAnalysis.test(q))return false;'''
+          if old not in s: raise SystemExit('creation anchor not found')
+          s=s.replace(old,new,1)
+
+          old = 'function askZora(question,history,attachments=[]){return new Promise((resolve,reject)=>{if(!authReady||!authToken)return reject(new Error("Silakan login dengan Google terlebih dahulu."));'
+          new = 'function askZora(question,history,attachments=[]){touchSession();return new Promise((resolve,reject)=>{if(!authReady||!authToken)return reject(new Error("Silakan login dengan Google terlebih dahulu."));'
+          if old not in s: raise SystemExit('askZora anchor not found')
+          s=s.replace(old,new,1)
+
+          old = 'initGoogleLogin();setLoggedInUser(null);console.log("ZOYA AI V11 + GOOGLE LOGIN + USER-ISOLATED MEMORY + GALLERY/CAMERA + STRICT INTENT");'
+          new = 'if(!restoreSession()){setLoggedInUser(null);initGoogleLogin()}else{loadMemory();setupVoiceInput();refreshSendState();initGoogleLogin()}window.addEventListener("pointerdown",touchSession,{passive:true});window.addEventListener("keydown",touchSession,{passive:true});console.log("ZOYA AI V12 + PERSISTENT 5-DAY SESSION + NATURAL FILE INTENT");'
+          if old not in s: raise SystemExit('init anchor not found')
+          s=s.replace(old,new,1)
+
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit patched index
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: persist session and improve natural attachment intent"
+          git push
