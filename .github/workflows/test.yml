@@ -1,12 +1,52 @@
-name: Test workflow
+name: Patch mobile UX
 on:
   push:
     branches: ['fix/zoya-mobile-ux-v2']
 permissions:
   contents: write
 jobs:
-  test:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo OK
+      - name: Patch HTML
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          changes=[]
+          reps=[
+            ('html,body{margin:0;padding:0;width:100%;height:100%}body{font-family:Arial,sans-serif;background:#fff;color:#202123}', 'html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}body{font-family:Arial,sans-serif;background:#fff;color:#202123;overflow:hidden}'),
+            ('@media(max-width:600px){.zora{height:100vh;height:100dvh}', '@media(max-width:600px){.zora{position:fixed;inset:0;width:100%;max-width:none;height:100vh;height:100dvh;margin:0}'),
+            ('isSending=false;sendButton.disabled=micButton.disabled=uploadButton.disabled=false;refreshSendState();questionInput.focus()', 'isSending=false;sendButton.disabled=micButton.disabled=uploadButton.disabled=false;refreshSendState();try{questionInput.focus({preventScroll:true})}catch(e){questionInput.focus()}requestAnimationFrame(()=>requestAnimationFrame(()=>{chat.scrollTop=chat.scrollHeight}))')]
+          for a,b in reps:
+            if a not in s: raise SystemExit('anchor not found: '+a[:80])
+            s=s.replace(a,b,1); changes.append(a[:30])
+          m=re.search(r'async function handleGoogleCredential\(response\)\{.*?\}\nfunction initGoogleLogin',s,re.S)
+          if not m: raise SystemExit('auth handler not found')
+          new="""async function handleGoogleCredential(response){hideAuthError();const token=String(response&&response.credential||\"\");if(!token){showAuthError('Google tidak mengirim ID Token.');return}const payload=decodeJwtPayload(token)||{};const localUser={userId:String(payload.sub||''),email:String(payload.email||''),name:String(payload.name||payload.given_name||''),picture:String(payload.picture||'')};if(!localUser.userId){showAuthError('Google User ID tidak ditemukan.');return}authToken=token;currentUser=localUser;localStorage.setItem('ZOYA_AI_GOOGLE_USER',JSON.stringify({email:localUser.email,name:localUser.name,picture:localUser.picture,userId:localUser.userId}));authReady=false;if(authScreen)authScreen.style.display='none';if(authUser)authUser.style.display='flex';if(authUserName)authUserName.textContent=localUser.name||localUser.email;if(authUserAvatar){authUserAvatar.src=localUser.picture||'';authUserAvatar.style.display=localUser.picture?'block':'none'}conversationHistory=[];lastSubstantiveAssistantText='';loadMemory();setupVoiceInput();refreshSendState();try{const result=await validateGoogleLogin(token);const user=result&&result.user||{};currentUser={userId:String(user.userId||localUser.userId),email:String(user.email||localUser.email),name:String(user.name||localUser.name),picture:String(user.picture||localUser.picture)};authReady=true;saveSession();setLoggedInUser(currentUser);refreshSendState()}catch(e){authToken='';currentUser=null;authReady=false;setLoggedInUser(null);showAuthError(e.message||'Google login gagal.')}}
+function initGoogleLogin"""
+          s=s[:m.start()]+new+s[m.end():]
+          p.write_text(s,encoding='utf-8')
+          print('PATCH_OK',changes)
+          PY
+      - name: Validate JS
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          parts=re.findall(r'<script[^>]*>([\s\S]*?)</script>',s,re.I)
+          Path('/tmp/zoya.js').write_text(parts[-1],encoding='utf-8')
+          PY
+          node --check /tmp/zoya.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git rm .github/workflows/test.yml
+          git commit -m 'Fix mobile login latency and chat scroll behavior'
+          git push origin fix/zoya-mobile-ux-v2
