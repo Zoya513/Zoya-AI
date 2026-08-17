@@ -81,7 +81,7 @@ jobs:
           from pathlib import Path
           import re
           s = Path('index.html').read_text(encoding='utf-8')
-          m = re.search(r'<script>([\\s\\S]*)</script>\\s*</body>', s)
+          m = re.search(r'<script>([\s\S]*)</script>\s*</body>', s)
           if not m:
               raise SystemExit('script block not found')
           Path('/tmp/zoya.js').write_text(m.group(1), encoding='utf-8')
