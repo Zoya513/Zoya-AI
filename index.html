@@ -1106,19 +1106,22 @@ async function runCreationEngine(instruction,attachments){
 }
 function autoResizeTextarea(){questionInput.style.height="auto";questionInput.style.height=Math.min(questionInput.scrollHeight,150)+"px"}
 /* VOICE */
-function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){micButton.onclick=()=>alert("Speech-to-Text tidak didukung browser ini. Gunakan Chrome atau Edge terbaru.");return}recognition=new SR();recognition.lang="id-ID";recognition.continuous=false;recognition.interimResults=true;recognition.maxAlternatives=1;function help(msg){voiceStatus.textContent=msg;voiceStatus.classList.add("active");voicePermission.classList.add("active");micButton.classList.add("permission-needed")}function hide(){voicePermission.classList.remove("active");micButton.classList.remove("permission-needed")}async function permission(){if(!navigator.mediaDevices?.getUserMedia){help("Browser tidak menyediakan akses microphone. Gunakan Chrome atau Edge.");return false}try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());hide();return true}catch(e){help(e.name==="NotAllowedError"?"Izin microphone ditolak. Izinkan microphone melalui ikon kunci di address bar.":e.name==="NotFoundError"?"Microphone tidak ditemukan.":"ZORA tidak bisa mengakses microphone: "+e.name);return false}}voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};recognition.onstart=()=>{isListening=true;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};recognition.onresult=e=>{
+function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){micButton.onclick=()=>alert("Speech-to-Text tidak didukung browser ini. Gunakan Chrome atau Edge terbaru.");return}recognition=new SR();recognition.lang="id-ID";recognition.continuous=true;recognition.interimResults=true;recognition.maxAlternatives=1;function help(msg){voiceStatus.textContent=msg;voiceStatus.classList.add("active");voicePermission.classList.add("active");micButton.classList.add("permission-needed")}function hide(){voicePermission.classList.remove("active");micButton.classList.remove("permission-needed")}async function permission(){if(!navigator.mediaDevices?.getUserMedia){help("Browser tidak menyediakan akses microphone. Gunakan Chrome atau Edge.");return false}try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());hide();return true}catch(e){help(e.name==="NotAllowedError"?"Izin microphone ditolak. Izinkan microphone melalui ikon kunci di address bar.":e.name==="NotFoundError"?"Microphone tidak ditemukan.":"ZORA tidak bisa mengakses microphone: "+e.name);return false}}voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};recognition.onstart=()=>{isListening=true;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};recognition.onresult=e=>{
   let t="";
   for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;
   t=t.trim();
   if(t){
     questionInput.value=voiceBaseText?(voiceBaseText+" "+t):t;
     autoResizeTextarea();
-    const last=e.results[e.results.length-1];
-    if(last&&last.isFinal){
-      setTimeout(()=>{if(!isSending&&!isListening&&questionInput.value.trim())sendMessage()},120);
-    }
   }
-};recognition.onerror=e=>{if(e.error==="not-allowed")help("Akses microphone ditolak. Izinkan microphone dari ikon kunci di address bar.");else if(e.error==="no-speech"){voiceStatus.textContent="Tidak terdengar suara. Coba bicara lagi.";voiceStatus.classList.add("active")}else help("Speech-to-Text gagal: "+e.error)};recognition.onend=()=>{isListening=false;micButton.classList.remove("listening");micButton.textContent="🎤";voiceStatus.classList.remove("active")};micButton.onclick=async()=>{if(isSending)return;if(isListening){recognition.stop();return}if(await permission()){voiceBaseText=questionInput.value.trim();try{recognition.start()}catch(e){setTimeout(()=>{try{if(!isListening)recognition.start()}catch(x){}},300)}}}}
+};recognition.onerror=e=>{if(e.error==="not-allowed")help("Akses microphone ditolak. Izinkan microphone dari ikon kunci di address bar.");else if(e.error==="no-speech"){voiceStatus.textContent="Tidak terdengar suara. Coba bicara lagi.";voiceStatus.classList.add("active")}else help("Speech-to-Text gagal: "+e.error)};recognition.onend=()=>{
+  if(isListening){
+    try{recognition.start();return}catch(e){}
+  }
+  micButton.classList.remove("listening");
+  micButton.textContent="🎤";
+  voiceStatus.classList.remove("active");
+};micButton.onclick=async()=>{if(isSending)return;if(isListening){isListening=false;recognition.stop();return}if(await permission()){voiceBaseText=questionInput.value.trim();try{recognition.start()}catch(e){setTimeout(()=>{try{if(!isListening)recognition.start()}catch(x){}},300)}}}}
 
 /* =========================================================
    DOCUMENT UPLOAD — FINAL POST CHUNK VERSION
@@ -1463,10 +1466,29 @@ questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key===
 (function startZoyaAuthentication(){
   zoyaSession=loadZoyaSession();
   updateZoyaAuthUI();
+
   if(zoyaSession){
-    try{loadMemory();}catch(e){console.warn("Load memory saat refresh gagal:",e);}
-    try{setupVoiceInput();}catch(e){console.warn("Voice init saat refresh gagal:",e);}
+    try{loadMemory()}catch(e){}
+    try{setupVoiceInput()}catch(e){}
+
+    // Jangan menunggu Google SDK untuk menampilkan app yang sudah login.
+    const bootGoogle=()=>{
+      if(window.google&&window.google.accounts&&window.google.accounts.id){
+        initializeZoyaGoogleLogin();
+        return true;
+      }
+      return false;
+    };
+
+    if(!bootGoogle()){
+      const t=setInterval(()=>{
+        if(bootGoogle()) clearInterval(t);
+      },250);
+      setTimeout(()=>clearInterval(t),5000);
+    }
+    return;
   }
+
   let attempts=0;
   const timer=setInterval(function(){
     attempts++;
@@ -1477,7 +1499,7 @@ questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key===
     }
     if(attempts>=100){
       clearInterval(timer);
-      if(!zoyaSession) showZoyaAuthError("Google Login tidak dapat dimuat. Pastikan koneksi internet aktif.");
+      showZoyaAuthError("Google Login tidak dapat dimuat. Pastikan koneksi internet aktif.");
     }
   },100);
 })();
