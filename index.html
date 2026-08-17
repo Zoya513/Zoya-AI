@@ -1388,10 +1388,12 @@ async function uploadFileToBackend(file,ui){
 
     return result;
   }catch(error){
+    // Jangan menunggu upload_abort. Saat user membatalkan, UI harus
+    // langsung selesai; cleanup server berjalan asynchronous.
     if(sessionId){
-      try{
-        await uploadJsonp({action:"upload_abort",sessionId},30000);
-      }catch(e){}
+      uploadJsonp({action:"upload_abort",sessionId},5000).catch(function(e){
+        console.warn("ZOYA upload_abort:",e);
+      });
     }
     throw error;
   }
@@ -1422,12 +1424,24 @@ function cancelQueuedOrActive(item){
   }
   if(item.status==="uploading"&&activeUpload===item){
     item.cancelled=true;
+    item.status="cancelled";
     item.ui.cancel.disabled=true;
+    item.ui.state.textContent="Dibatalkan";
+    // Hapus kartu dari UI SEKETIKA. Proses upload yang sedang berjalan
+    // tetap dihentikan di background oleh activePostCancel/upload_abort.
+    removeCard(item.ui);
     const sid=activeUpload.sessionId||null;
-    if(activePostCancel)try{activePostCancel()}catch(e){}
-    if(sid){
-      uploadJsonp({action:"upload_abort",sessionId:sid},30000).catch(()=>{});
+    if(activePostCancel){
+      try{activePostCancel();}catch(e){}
     }
+    if(sid){
+      uploadJsonp({action:"upload_abort",sessionId:sid},5000).catch(function(e){
+        console.warn("ZOYA upload_abort:",e);
+      });
+    }
+    // Keluarkan item dari queue sekarang agar tidak menunggu network cleanup.
+    uploadQueue=uploadQueue.filter(function(x){return x!==item;});
+    refreshSendState();
   }
 }
 
@@ -1476,7 +1490,7 @@ function postUploadChunk(sessionId,chunkIndex,totalChunks,base64Data){
     function cleanup(){
       clearTimeout(timeout);
       if(form.parentNode)form.parentNode.removeChild(form);
-      setTimeout(function(){if(iframe.parentNode)iframe.parentNode.removeChild(iframe)},1000);
+      setTimeout(function(){if(iframe.parentNode)iframe.parentNode.removeChild(iframe)},100);
     }
 
     function cancel(){
