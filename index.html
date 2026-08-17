@@ -114,6 +114,7 @@
     cursor:pointer;
 }
 .zoya-user:hover{background:#f3f3f3}
+.zoya-user.auth-pending{display:flex;background:#f1f1f1;pointer-events:none}.zoya-user.auth-pending img{opacity:.35}
 .zoya-user:hover { background:#f3f3f3; }
 .zoya-user img {
     width: 30px;
@@ -647,6 +648,17 @@ async function handleZoyaGoogleCredential(
         zoyaAuthOverlay.style.display = "none";
     }
 
+    // Hilangkan flicker tombol "Masuk dengan Google" segera setelah
+    // Google mengirim credential. Avatar asli akan dipasang setelah
+    // backend selesai memvalidasi user.
+    if (zoyaLoginButton) {
+        zoyaLoginButton.style.display = "none";
+    }
+    if (zoyaUser) {
+        zoyaUser.classList.add("auth-pending");
+        zoyaUser.style.display = "flex";
+    }
+
     try {
 
         if (
@@ -668,6 +680,10 @@ async function handleZoyaGoogleCredential(
         // Simpan segera di dua storage sebelum UI/riwayat lain diproses.
         saveZoyaSession(zoyaSession);
 
+        if (zoyaUser) {
+            zoyaUser.classList.remove("auth-pending");
+        }
+
         updateZoyaAuthUI();
         conversationHistory=[];
         lastSubstantiveAssistantText="";
@@ -688,6 +704,13 @@ async function handleZoyaGoogleCredential(
 
         if (zoyaAuthOverlay) {
             zoyaAuthOverlay.style.display = "flex";
+        }
+        if (zoyaUser) {
+            zoyaUser.classList.remove("auth-pending");
+            zoyaUser.style.display = "none";
+        }
+        if (zoyaLoginButton) {
+            zoyaLoginButton.style.display = "inline-flex";
         }
 
         showZoyaAuthError(
@@ -1114,7 +1137,7 @@ async function runCreationEngine(instruction,attachments){
 }
 function autoResizeTextarea(){questionInput.style.height="auto";questionInput.style.height=Math.min(questionInput.scrollHeight,150)+"px"}
 /* VOICE */
-function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){micButton.onclick=()=>alert("Speech-to-Text tidak didukung browser ini. Gunakan Chrome atau Edge terbaru.");return}recognition=new SR();recognition.lang="id-ID";recognition.continuous=true;recognition.interimResults=true;recognition.maxAlternatives=1;function help(msg){voiceStatus.textContent=msg;voiceStatus.classList.add("active");voicePermission.classList.add("active");micButton.classList.add("permission-needed")}function hide(){voicePermission.classList.remove("active");micButton.classList.remove("permission-needed")}async function permission(){if(!navigator.mediaDevices?.getUserMedia){help("Browser tidak menyediakan akses microphone. Gunakan Chrome atau Edge.");return false}try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());hide();return true}catch(e){help(e.name==="NotAllowedError"?"Izin microphone ditolak. Izinkan microphone melalui ikon kunci di address bar.":e.name==="NotFoundError"?"Microphone tidak ditemukan.":"ZORA tidak bisa mengakses microphone: "+e.name);return false}}voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};recognition.onstart=()=>{isListening=true;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};recognition.onresult=e=>{
+function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){micButton.onclick=()=>alert("Speech-to-Text tidak didukung browser ini. Gunakan Chrome atau Edge terbaru.");return}recognition=new SR();recognition.lang="id-ID";recognition.continuous=false;recognition.interimResults=true;recognition.maxAlternatives=1;function help(msg){voiceStatus.textContent=msg;voiceStatus.classList.add("active");voicePermission.classList.add("active");micButton.classList.add("permission-needed")}function hide(){voicePermission.classList.remove("active");micButton.classList.remove("permission-needed")}async function permission(){if(!navigator.mediaDevices?.getUserMedia){help("Browser tidak menyediakan akses microphone. Gunakan Chrome atau Edge.");return false}try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());hide();return true}catch(e){help(e.name==="NotAllowedError"?"Izin microphone ditolak. Izinkan microphone melalui ikon kunci di address bar.":e.name==="NotFoundError"?"Microphone tidak ditemukan.":"ZORA tidak bisa mengakses microphone: "+e.name);return false}}voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};recognition.onstart=()=>{isListening=true;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};recognition.onresult=e=>{
   let finalChunk="";
   let interimChunk="";
 
@@ -1147,8 +1170,16 @@ function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeec
   }
 };recognition.onerror=e=>{if(e.error==="not-allowed")help("Akses microphone ditolak. Izinkan microphone dari ikon kunci di address bar.");else if(e.error==="no-speech"){voiceStatus.textContent="Tidak terdengar suara. Coba bicara lagi.";voiceStatus.classList.add("active")}else help("Speech-to-Text gagal: "+e.error)};recognition.onend=()=>{
   if(isListening){
-    try{recognition.start();return}catch(e){}
+    // Restart recognition after each completed phrase/session.
+    // voiceCommittedText tetap dipertahankan sehingga jeda tidak menghapus teks.
+    setTimeout(()=>{
+      try{
+        if(isListening) recognition.start();
+      }catch(e){}
+    },80);
+    return;
   }
+
   micButton.classList.remove("listening");
   micButton.textContent="🎤";
   voiceStatus.classList.remove("active");
