@@ -36,20 +36,20 @@ jobs:
           s,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
           if n!=1: raise SystemExit('auth ui function not found')
 
-          old='''        zoyaAuthPending=true;\n        zoyaAuthOverlay.style.display="none";\n        zoyaUser.style.display="flex";\n        if(zoyaUserPicture&&payload.picture){zoyaUserPicture.src=payload.picture;}\n        zoyaUserPicture.title=payload.email||"Akun Google";\n        zoyaAuthStatusText("Menyiapkan akun…");\n        const result = await authenticateZoyaWithBackend(response.credential);'''
-          new='''        zoyaAuthPending=true;\n        updateZoyaAuthUI();\n        zoyaAuthStatusText("Menyiapkan akun…");\n        const result = await authenticateZoyaWithBackend(response.credential);'''
-          if old not in s: raise SystemExit('pending block not found')
-          s=s.replace(old,new,1)
+          pending_pattern=r'zoyaAuthPending=true;[\s\S]{0,500}?const result = await authenticateZoyaWithBackend\(response\.credential\);'
+          pending_repl='''zoyaAuthPending=true;\n        updateZoyaAuthUI();\n        zoyaAuthStatusText("Menyiapkan akun…");\n        const result = await authenticateZoyaWithBackend(response.credential);'''
+          s,n=re.subn(pending_pattern,pending_repl,s,count=1)
+          if n!=1: raise SystemExit('pending auth sequence not found')
 
-          old='''        saveZoyaSession(\n            zoyaSession\n        );\n\n        updateZoyaAuthUI();\n        conversationHistory=[];'''
-          new='''        saveZoyaSession(\n            zoyaSession\n        );\n\n        zoyaAuthPending=false;\n        updateZoyaAuthUI();\n        conversationHistory=[];'''
-          if old not in s: raise SystemExit('success block not found')
-          s=s.replace(old,new,1)
+          success_pattern=r'saveZoyaSession\(\s*zoyaSession\s*\);\s*updateZoyaAuthUI\(\);\s*conversationHistory=\[\];'
+          success_repl='''saveZoyaSession(\n            zoyaSession\n        );\n\n        zoyaAuthPending=false;\n        updateZoyaAuthUI();\n        conversationHistory=[];'''
+          s,n=re.subn(success_pattern,success_repl,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('success auth sequence not found')
 
-          old='''        setupVoiceInput();\n\n        console.log(\n            "ZOYA LOGIN BERHASIL:",'''
-          new='''        setupVoiceInput();\n        refreshSendState();\n\n        console.log(\n            "ZOYA LOGIN BERHASIL:",'''
-          if old not in s: raise SystemExit('post-login block not found')
-          s=s.replace(old,new,1)
+          post_pattern=r'setupVoiceInput\(\);\s*console\.log\(\s*"ZOYA LOGIN BERHASIL:",'
+          post_repl='''setupVoiceInput();\n        refreshSendState();\n\n        console.log(\n            "ZOYA LOGIN BERHASIL:",'''
+          s,n=re.subn(post_pattern,post_repl,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('post login sequence not found')
 
           s=s.replace('function logoutZoya() {\n\n    clearZoyaSession();','function logoutZoya() {\n\n    zoyaAuthPending=false;\n    clearZoyaSession();',1)
           p.write_text(s,encoding='utf-8')
