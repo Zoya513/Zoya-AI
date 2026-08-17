@@ -643,6 +643,10 @@ async function handleZoyaGoogleCredential(
 
     clearZoyaAuthError();
 
+    if (zoyaAuthOverlay) {
+        zoyaAuthOverlay.style.display = "none";
+    }
+
     try {
 
         if (
@@ -681,6 +685,10 @@ async function handleZoyaGoogleCredential(
             "ZOYA GOOGLE LOGIN ERROR:",
             error
         );
+
+        if (zoyaAuthOverlay) {
+            zoyaAuthOverlay.style.display = "flex";
+        }
 
         showZoyaAuthError(
             error &&
@@ -759,7 +767,7 @@ function getZoyaAuthToken() {
 
 
 const MEMORY_KEY="ZORA_AI_MEMORY_V11",MAX_HISTORY_MESSAGES=8,MAX_HISTORY_CHARS=1200,MAX_RETRIES=3,REQUEST_TIMEOUT=45000;
-let conversationHistory=[],lastSubstantiveAssistantText="",isSending=false,recognition=null,isListening=false,voiceBaseText="";
+let conversationHistory=[],lastSubstantiveAssistantText="",isSending=false,recognition=null,isListening=false,voiceBaseText="",voiceCommittedText="",voiceInterimText="";
 const $=id=>document.getElementById(id),questionInput=$("question"),chat=$("chat"),loading=$("loading"),sendButton=$("send"),welcome=$("welcome"),retryStatus=$("retryStatus"),micButton=$("mic"),voiceStatus=$("voiceStatus"),voicePermission=$("voicePermission"),voicePermissionButton=$("voicePermissionButton"),voicePermissionText=$("voicePermissionText"),uploadButton=$("uploadButton"),attachWrap=$("attachWrap"),attachMenu=$("attachMenu"),attachImage=$("attachImage"),attachCamera=$("attachCamera"),attachFile=$("attachFile"),attachVoice=$("attachVoice"),documentInput=$("documentInput"),imageInput=$("imageInput"),cameraInput=$("cameraInput"),uploadAttachments=$("uploadAttachments");
 function userMemoryKey(){const uid=getZoyaUserId();return uid?MEMORY_KEY+"_"+uid:MEMORY_KEY+"_ANONYMOUS"}
 function loadMemory(){try{const s=localStorage.getItem(userMemoryKey());if(!s)return;const d=JSON.parse(s);if(Array.isArray(d))conversationHistory=d.filter(x=>x&&(x.role==="user"||x.role==="assistant")&&typeof x.text==="string"&&x.text.trim()).slice(-MAX_HISTORY_MESSAGES); for(let i=conversationHistory.length-1;i>=0;i--){if(conversationHistory[i].role==="assistant"&&!isCreationConfirmationText(conversationHistory[i].text)){lastSubstantiveAssistantText=conversationHistory[i].text;break}}}catch(e){conversationHistory=[]}}
@@ -1107,11 +1115,34 @@ async function runCreationEngine(instruction,attachments){
 function autoResizeTextarea(){questionInput.style.height="auto";questionInput.style.height=Math.min(questionInput.scrollHeight,150)+"px"}
 /* VOICE */
 function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){micButton.onclick=()=>alert("Speech-to-Text tidak didukung browser ini. Gunakan Chrome atau Edge terbaru.");return}recognition=new SR();recognition.lang="id-ID";recognition.continuous=true;recognition.interimResults=true;recognition.maxAlternatives=1;function help(msg){voiceStatus.textContent=msg;voiceStatus.classList.add("active");voicePermission.classList.add("active");micButton.classList.add("permission-needed")}function hide(){voicePermission.classList.remove("active");micButton.classList.remove("permission-needed")}async function permission(){if(!navigator.mediaDevices?.getUserMedia){help("Browser tidak menyediakan akses microphone. Gunakan Chrome atau Edge.");return false}try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());hide();return true}catch(e){help(e.name==="NotAllowedError"?"Izin microphone ditolak. Izinkan microphone melalui ikon kunci di address bar.":e.name==="NotFoundError"?"Microphone tidak ditemukan.":"ZORA tidak bisa mengakses microphone: "+e.name);return false}}voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};recognition.onstart=()=>{isListening=true;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};recognition.onresult=e=>{
-  let t="";
-  for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;
-  t=t.trim();
-  if(t){
-    questionInput.value=voiceBaseText?(voiceBaseText+" "+t):t;
+  let finalChunk="";
+  let interimChunk="";
+
+  for(let i=e.resultIndex;i<e.results.length;i++){
+    const part=String(e.results[i][0]?.transcript||"").trim();
+    if(!part) continue;
+
+    if(e.results[i].isFinal){
+      finalChunk += (finalChunk ? " " : "") + part;
+    }else{
+      interimChunk += (interimChunk ? " " : "") + part;
+    }
+  }
+
+  if(finalChunk){
+    voiceCommittedText=(voiceCommittedText+" "+finalChunk).trim();
+  }
+
+  voiceInterimText=interimChunk;
+
+  const combined=[voiceBaseText,voiceCommittedText,voiceInterimText]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g," ")
+    .trim();
+
+  if(combined){
+    questionInput.value=combined;
     autoResizeTextarea();
   }
 };recognition.onerror=e=>{if(e.error==="not-allowed")help("Akses microphone ditolak. Izinkan microphone dari ikon kunci di address bar.");else if(e.error==="no-speech"){voiceStatus.textContent="Tidak terdengar suara. Coba bicara lagi.";voiceStatus.classList.add("active")}else help("Speech-to-Text gagal: "+e.error)};recognition.onend=()=>{
@@ -1121,7 +1152,30 @@ function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeec
   micButton.classList.remove("listening");
   micButton.textContent="🎤";
   voiceStatus.classList.remove("active");
-};micButton.onclick=async()=>{if(isSending)return;if(isListening){isListening=false;recognition.stop();return}if(await permission()){voiceBaseText=questionInput.value.trim();try{recognition.start()}catch(e){setTimeout(()=>{try{if(!isListening)recognition.start()}catch(x){}},300)}}}}
+};micButton.onclick=async()=>{
+  if(isSending)return;
+
+  if(isListening){
+    isListening=false;
+    recognition.stop();
+    return;
+  }
+
+  if(await permission()){
+    voiceBaseText=questionInput.value.trim();
+    voiceCommittedText="";
+    voiceInterimText="";
+    try{
+      recognition.start();
+    }catch(e){
+      setTimeout(()=>{
+        try{
+          if(!isListening)recognition.start();
+        }catch(x){}
+      },300);
+    }
+  }
+}}
 
 /* =========================================================
    DOCUMENT UPLOAD — FINAL POST CHUNK VERSION
