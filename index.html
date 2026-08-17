@@ -238,6 +238,9 @@
 </div>
 <script>
 const BACKEND_URL="https://script.google.com/macros/s/AKfycbw33TXwySs86gmsMloKyXFSXiaQx38nnn-7Lo8-af-BK6nnchC2wGH52ogF-aVit1j7Cg/exec";
+// Semantic Router V1.2 — hanya untuk menentukan intent/format/context policy.
+// Backend utama dan Creation Engine tetap terpisah.
+const CORE_ROUTER_URL="https://script.google.com/macros/s/AKfycbzSghjKvym8UO-JEqoFjTHuFFQej8mRbnW_VzneppNWb6GJDquZlcHfqufNTJudP-EhaA/exec";
 
 /* =========================================================
    GOOGLE AUTHENTICATION — STEP 11
@@ -799,6 +802,34 @@ function prepareHistory(h){return Array.isArray(h)?h.slice(-MAX_HISTORY_MESSAGES
 function formatAIResponse(t){if(!t)return"";let s=String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");s=s.replace(/```([\s\S]*?)```/g,(m,c)=>'<pre class="ai-code-block">'+c.trim()+"</pre>");s=s.replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/__(.+?)__/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,"$1<em>$2</em>").replace(/(^|[^_])_([^_\n]+)_(?!_)/g,"$1<em>$2</em>").replace(/^###\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^##\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^#\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^\s*[-*+]\s+(.+)$/gm,'<span class="ai-bullet">• $1</span>').replace(/^\s*(\d+)\.\s+(.+)$/gm,'<span class="ai-number">$1. $2</span>').replace(/\n/g,"<br>");return s}
 function addMessage(text,type){const m=document.createElement("div");m.className="message "+type;if(type==="ai"){const a=document.createElement("div");a.className="avatar";m.appendChild(a)}const b=document.createElement("div");b.className="bubble";type==="ai"?b.innerHTML=formatAIResponse(text):b.textContent=String(text||"");m.appendChild(b);chat.appendChild(m);requestAnimationFrame(()=>chat.scrollTop=chat.scrollHeight)}
 function callbackName(){return"zoraCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2,10)}
+function semanticRoute(input){
+  return new Promise((resolve)=>{
+    const text=String(input||"").trim();
+    if(!text){resolve(null);return;}
+    const cb="zoraCoreCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2,10);
+    const script=document.createElement("script");
+    let done=false;
+    const timeout=setTimeout(()=>finish(null),8000);
+    function cleanup(){clearTimeout(timeout);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}
+    function finish(data){if(done)return;done=true;cleanup();resolve(data&&data.success===true?data:null)}
+    window[cb]=finish;
+    script.onerror=()=>finish(null);
+    const p=new URLSearchParams({q:text,callback:cb,_:Date.now()});
+    script.src=CORE_ROUTER_URL+"?"+p.toString();
+    script.async=true;
+    document.body.appendChild(script);
+  });
+}
+function applySemanticRouteToCreation(text,route){
+  if(!route||route.intent!=="CREATE_FILE")return text;
+  return String(route.normalized_input||text).trim() || text;
+}
+function semanticCreationDecision(text,attachments,route){
+  if(!route)return isCreationRequest(text,attachments);
+  if(route.intent!=="CREATE_FILE")return false;
+  const fmt=String(route.format||"").toLowerCase();
+  return ["pdf","pptx","docx","xlsx"].includes(fmt);
+}
 function askZora(question,history,attachments=[],attachmentOnly=false){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId = getZoyaUserId();
 if(!currentUserId){
   reject(new Error("Silakan login dengan Google terlebih dahulu."));
@@ -849,9 +880,19 @@ async function sendMessage(){
   autoResizeTextarea();
   loading.style.display="block";
 
+  let creationMode=false;
   try{
-    if(isCreationRequest(finalQuestion,attachments)){
-      const result=await runCreationEngine(finalQuestion,attachments);
+    // Semantic Router menjadi decision layer utama. Router lama tetap menjadi fallback
+    // jika endpoint router gagal/timeout. Tidak mengubah backend utama.
+    const route=await semanticRoute(finalQuestion);
+    const routedQuestion=route&&route.normalized_input?String(route.normalized_input).trim():finalQuestion;
+    const creationByRoute=semanticCreationDecision(finalQuestion,attachments,route);
+    const creationByLegacy=!route&&isCreationRequest(finalQuestion,attachments);
+
+    if(creationByRoute||creationByLegacy){
+      creationMode=true;
+      const creationInstruction=creationByRoute?applySemanticRouteToCreation(finalQuestion,route):finalQuestion;
+      const result=await runCreationEngine(creationInstruction,attachments);
       validateCreationResult(result);
       conversationHistory.push({role:"user",text:finalQuestion});
       saveMemory();
@@ -860,11 +901,13 @@ async function sendMessage(){
     }
 
     const analysisQuestion=attachments.length>1
-      ? (finalQuestion+"\n\n[MODE ANALISIS MULTI-FILE]\nAnalisis seluruh attachment yang saya kirim sebagai satu konteks. Bandingkan dan hubungkan informasi antar-file bila relevan. Jangan mengabaikan attachment yang relevan.")
-      : finalQuestion;
+      ? (routedQuestion+"\n\n[MODE ANALISIS MULTI-FILE]\nAnalisis seluruh attachment yang saya kirim sebagai satu konteks. Bandingkan dan hubungkan informasi antar-file bila relevan. Jangan mengabaikan attachment yang relevan.")
+      : routedQuestion;
+
+    const analysisQuestionWithRouting=route&&route.intent?analysisQuestion:"";
 
     const r=await askZoraWithRetry(
-      analysisQuestion,
+      analysisQuestionWithRouting||analysisQuestion,
       h,
       attachments,
       attachmentOnly
@@ -880,7 +923,7 @@ async function sendMessage(){
     saveMemory();
     addMessage(a,"ai");
   }catch(e){
-    const creationFailure=isCreationRequest(finalQuestion,attachments);
+    const creationFailure=creationMode||isCreationRequest(finalQuestion,attachments);
     addMessage(
       creationFailure
         ? creationErrorMessage(e)
