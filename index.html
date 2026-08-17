@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ZOYA AI — FINAL Upload</title>
+<title>ZOYA AI</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%23111%22/%3E%3Ctext x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2230%22 font-weight=%22700%22 fill=%22white%22%3EZ%3C/text%3E%3C/svg%3E">
 <style>
 *{box-sizing:border-box}html,body{margin:0;padding:0;width:100%;height:100%}body{font-family:Arial,sans-serif;background:#fff;color:#202123}.zora{width:100%;max-width:900px;height:650px;margin:auto;display:flex;flex-direction:column;background:#fff;overflow:hidden}:root{--zora-logo:url("https://drive.google.com/thumbnail?id=13yvCD_AJqoGExm57zGdtTUEezW5EAWo9&sz=w1000")}.header{height:64px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid #eee;flex-shrink:0}.logo,.avatar,.welcome-logo{background-image:var(--zora-logo);background-repeat:no-repeat;background-size:270%;background-position:center 38%;background-color:#111;overflow:hidden}.logo{width:38px;height:38px;border-radius:12px;margin-right:12px}.title{font-size:18px;font-weight:600}.status{margin-left:10px;font-size:12px;color:#777}.chat{flex:1;overflow-y:auto;padding:30px 22px;scroll-behavior:smooth}.message{display:flex;margin-bottom:28px;width:100%}.message.user{justify-content:flex-end}.message.ai{justify-content:flex-start}.avatar{width:32px;height:32px;border-radius:10px;margin-right:10px;flex-shrink:0}.bubble{max-width:75%;line-height:1.6;font-size:15px;overflow-wrap:anywhere}.user .bubble{background:#f0f0f0;padding:12px 16px;border-radius:18px;white-space:pre-wrap}.ai .bubble{white-space:normal}.ai .bubble strong{font-weight:700}.ai .bubble em{font-style:italic}.ai-heading{display:inline-block;font-weight:700;margin:6px 0 2px}.ai-code-block{display:block;background:#f5f5f5;padding:10px 12px;margin:8px 0;border-radius:8px;font-family:monospace;white-space:pre-wrap;overflow-x:auto}.ai .bubble code{background:#f1f1f1;padding:2px 5px;border-radius:5px;font-family:monospace;font-size:13px}.ai-bullet,.ai-number{display:block;margin-left:4px;padding-left:4px}.welcome{text-align:center;margin-top:100px}.welcome-logo{width:65px;height:65px;margin:auto;border-radius:20px}.welcome h1{margin:20px 0 8px;font-size:26px}.welcome p{color:#777;font-size:14px}.loading,.retry-status{font-size:13px;color:#888;display:none}.loading{margin:0 0 12px 64px}.retry-status{margin:0 0 15px 64px}.dot{animation:blink 1.4s infinite}.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}.input-area{padding:15px 20px 20px;flex-shrink:0}
 .input-box{display:flex;flex-direction:column;border:1px solid #d9d9d9;border-radius:18px;padding:7px 8px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.04)}
@@ -100,29 +101,26 @@
     background: #f7f7f7;
 }
 
-.zoya-user {
-    display: none;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: #555;
+.zoya-user{
+    display:none;
+    align-items:center;
+    justify-content:center;
+    width:34px;
+    height:34px;
+    padding:0;
+    border:0;
+    border-radius:50%;
+    background:transparent;
+    cursor:pointer;
 }
-
+.zoya-user:hover{background:#f3f3f3}
+.zoya-user:hover { background:#f3f3f3; }
 .zoya-user img {
     width: 30px;
     height: 30px;
     border-radius: 50%;
     object-fit: cover;
     border: 1px solid #eee;
-}
-
-.zoya-logout {
-    border: 0;
-    background: transparent;
-    color: #777;
-    cursor: pointer;
-    font-size: 12px;
-    padding: 4px 6px;
 }
 
 .zoya-auth-overlay {
@@ -208,11 +206,9 @@
 <div class="header"><div class="logo"></div><div class="title">ZOYA AI</div><div class="status">AI Assistant</div>
 <div class="zoya-account">
   <button type="button" class="zoya-login-btn" id="zoyaLoginButton" onclick="openZoyaGoogleLogin()">Masuk dengan Google</button>
-  <div class="zoya-user" id="zoyaUser">
-    <img id="zoyaUserPicture" alt="Foto profil">
-    <span id="zoyaUserName"></span>
-    <button type="button" class="zoya-logout" onclick="logoutZoya()">Keluar</button>
-  </div>
+  <button type="button" class="zoya-user" id="zoyaUser" onclick="logoutZoya()" title="Akun Google">
+    <img id="zoyaUserPicture" alt="Foto profil" referrerpolicy="no-referrer">
+  </button>
 </div></div>
 <div class="chat" id="chat"><div class="welcome" id="welcome"><div class="welcome-logo"></div><h1>Apa yang bisa saya bantu?</h1><p>Tanyakan sesuatu kepada ZOYA AI</p></div></div>
 <div class="loading" id="loading">ZOYA sedang berpikir <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
@@ -286,80 +282,36 @@ document.getElementById("zoyaUserName");
 ========================================================= */
 
 function loadZoyaSession() {
-
     try {
-
-        const raw =
-        localStorage.getItem(
-            ZOYA_AUTH_STORAGE_KEY
-        );
-
-        if (!raw) {
-            return null;
-        }
-
-        const data =
-        JSON.parse(raw);
-
-        if (
-            !data ||
-            data.authenticated !== true ||
-            !data.user ||
-            !data.user.userId
-        ) {
-            return null;
-        }
-
+        const rawLocal = localStorage.getItem(ZOYA_AUTH_STORAGE_KEY);
+        const rawSession = sessionStorage.getItem(ZOYA_AUTH_STORAGE_KEY);
+        const raw = rawLocal || rawSession;
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (!data || data.authenticated !== true || !data.user || !data.user.userId) return null;
+        // Repair the second storage automatically so refreshes are resilient.
+        try { localStorage.setItem(ZOYA_AUTH_STORAGE_KEY, JSON.stringify(data)); } catch (_) {}
+        try { sessionStorage.setItem(ZOYA_AUTH_STORAGE_KEY, JSON.stringify(data)); } catch (_) {}
         return data;
-
     } catch (error) {
-
-        console.error(
-            "Gagal membaca session ZOYA:",
-            error
-        );
-
+        console.error("Gagal membaca session ZOYA:", error);
         return null;
     }
 }
 
-
 function saveZoyaSession(data) {
-
-    try {
-
-        localStorage.setItem(
-            ZOYA_AUTH_STORAGE_KEY,
-            JSON.stringify(data)
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Gagal menyimpan session ZOYA:",
-            error
-        );
+    try { localStorage.setItem(ZOYA_AUTH_STORAGE_KEY, JSON.stringify(data)); } catch (error) {
+        console.warn("localStorage session ZOYA gagal:", error);
+    }
+    try { sessionStorage.setItem(ZOYA_AUTH_STORAGE_KEY, JSON.stringify(data)); } catch (error) {
+        console.warn("sessionStorage session ZOYA gagal:", error);
     }
 }
-
 
 function clearZoyaSession() {
-
-    try {
-
-        localStorage.removeItem(
-            ZOYA_AUTH_STORAGE_KEY
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Gagal menghapus session ZOYA:",
-            error
-        );
-    }
+    try { localStorage.removeItem(ZOYA_AUTH_STORAGE_KEY); } catch (_) {}
+    try { sessionStorage.removeItem(ZOYA_AUTH_STORAGE_KEY); } catch (_) {}
 }
-
 
 /* =========================================================
    AUTH UI
@@ -428,13 +380,6 @@ function updateZoyaAuthUI() {
     if (zoyaUser) {
         zoyaUser.style.display =
             "flex";
-    }
-
-    if (zoyaUserName) {
-        zoyaUserName.textContent =
-            zoyaSession.user.name ||
-            zoyaSession.user.email ||
-            "User";
     }
 
     if (
@@ -716,10 +661,8 @@ async function handleZoyaGoogleCredential(
 
         zoyaSession =
             result;
-
-        saveZoyaSession(
-            zoyaSession
-        );
+        // Simpan segera di dua storage sebelum UI/riwayat lain diproses.
+        saveZoyaSession(zoyaSession);
 
         updateZoyaAuthUI();
         conversationHistory=[];
@@ -825,7 +768,7 @@ function prepareHistory(h){return Array.isArray(h)?h.slice(-MAX_HISTORY_MESSAGES
 function formatAIResponse(t){if(!t)return"";let s=String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");s=s.replace(/```([\s\S]*?)```/g,(m,c)=>'<pre class="ai-code-block">'+c.trim()+"</pre>");s=s.replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/__(.+?)__/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,"$1<em>$2</em>").replace(/(^|[^_])_([^_\n]+)_(?!_)/g,"$1<em>$2</em>").replace(/^###\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^##\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^#\s+(.+)$/gm,'<span class="ai-heading">$1</span>').replace(/^\s*[-*+]\s+(.+)$/gm,'<span class="ai-bullet">• $1</span>').replace(/^\s*(\d+)\.\s+(.+)$/gm,'<span class="ai-number">$1. $2</span>').replace(/\n/g,"<br>");return s}
 function addMessage(text,type){const m=document.createElement("div");m.className="message "+type;if(type==="ai"){const a=document.createElement("div");a.className="avatar";m.appendChild(a)}const b=document.createElement("div");b.className="bubble";type==="ai"?b.innerHTML=formatAIResponse(text):b.textContent=String(text||"");m.appendChild(b);chat.appendChild(m);requestAnimationFrame(()=>chat.scrollTop=chat.scrollHeight)}
 function callbackName(){return"zoraCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2,10)}
-function askZora(question,history,attachments=[]){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId = getZoyaUserId();
+function askZora(question,history,attachments=[],attachmentOnly=false){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId = getZoyaUserId();
 if(!currentUserId){
   reject(new Error("Silakan login dengan Google terlebih dahulu."));
   return;
@@ -834,12 +777,13 @@ const p=new URLSearchParams({
   q:String(question),
   history:JSON.stringify(prepareHistory(history)),
   attachments:JSON.stringify(attachments||[]),
+  attachment_only:attachmentOnly?"1":"0",
   user_id:currentUserId,
   callback:cb,
   _:Date.now()
 });script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},REQUEST_TIMEOUT)})}
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-async function askZoraWithRetry(q,h,attachments=[]){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await wait(i*1500)}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
+async function askZoraWithRetry(q,h,attachments=[],attachmentOnly=false){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments,attachmentOnly);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await wait(i*1500)}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
 function addUserMessageWithAttachments(text,attachments){
   const m=document.createElement("div");m.className="message user";
   const wrap=document.createElement("div");wrap.className="bubble";wrap.textContent=text;
@@ -852,40 +796,74 @@ async function sendMessage(){
   const q=questionInput.value.trim();
   const attachments=attachmentMetadata();
   if(!q&&!attachments.length)return;
-  const finalQuestion=q||"Tolong analisis file yang saya kirim.";
-  isSending=true;sendButton.disabled=micButton.disabled=uploadButton.disabled=true;
+
+  const attachmentOnly=!q&&attachments.length>0;
+  const finalQuestion=q||(attachmentOnly?"Tolong analisis file yang saya kirim.":"");
+  if(!finalQuestion)return;
+
+  isSending=true;
+  sendButton.disabled=micButton.disabled=uploadButton.disabled=true;
   if(welcome?.parentNode)welcome.remove();
   addUserMessageWithAttachments(finalQuestion,attachments);
-  // Attachment yang sudah masuk ke pesan harus langsung keluar dari composer.
-  // Metadata tetap aman di variabel `attachments` untuk request ke backend.
+
+  // Attachment sudah menjadi bagian pesan. Composer dibersihkan tanpa
+  // menghapus metadata yang sudah disalin ke variabel lokal.
   clearPendingAttachments();
-  const h=prepareHistory(conversationHistory);
-  questionInput.value="";autoResizeTextarea();loading.style.display="block";
+
+  // Jika pengguna hanya mengirim file, jangan bawa percakapan lama.
+  // Ini mencegah gambar baru "menempel" ke topik chat sebelumnya.
+  const h=attachmentOnly?[]:prepareHistory(conversationHistory);
+
+  questionInput.value="";
+  autoResizeTextarea();
+  loading.style.display="block";
+
   try{
     if(isCreationRequest(finalQuestion,attachments)){
       const result=await runCreationEngine(finalQuestion,attachments);
       validateCreationResult(result);
-      // Jangan menyimpan konfirmasi sebagai jawaban AI substantif.
-      // Hasil analisis sebelumnya tetap menjadi sumber untuk permintaan seperti
-      // "jadikan analisa tadi PDF".
       conversationHistory.push({role:"user",text:finalQuestion});
       saveMemory();
-      addMessage("File berhasil dibuat dan sudah divalidasi oleh Creation Engine.","ai");
       addCreationResult(result);
       return;
     }
-    const analysisQuestion=attachments.length>1?(finalQuestion+"\n\n[MODE ANALISIS MULTI-FILE]\nAnalisis seluruh attachment yang saya kirim sebagai satu konteks. Bandingkan dan hubungkan informasi antar-file bila relevan. Jangan mengabaikan attachment yang relevan."):finalQuestion;
-    const r=await askZoraWithRetry(analysisQuestion,h,attachments),a=String(r.answer||"").trim();
+
+    const analysisQuestion=attachments.length>1
+      ? (finalQuestion+"\n\n[MODE ANALISIS MULTI-FILE]\nAnalisis seluruh attachment yang saya kirim sebagai satu konteks. Bandingkan dan hubungkan informasi antar-file bila relevan. Jangan mengabaikan attachment yang relevan.")
+      : finalQuestion;
+
+    const r=await askZoraWithRetry(
+      analysisQuestion,
+      h,
+      attachments,
+      attachmentOnly
+    );
+    const a=String(r.answer||"").trim();
     if(!a)throw new Error("ZORA mengembalikan jawaban kosong.");
-    conversationHistory.push({role:"user",text:finalQuestion},{role:"assistant",text:a});
+
+    conversationHistory.push(
+      {role:"user",text:finalQuestion},
+      {role:"assistant",text:a}
+    );
     lastSubstantiveAssistantText=a;
     saveMemory();
     addMessage(a,"ai");
   }catch(e){
     const creationFailure=isCreationRequest(finalQuestion,attachments);
-    addMessage(creationFailure?creationErrorMessage(e):"ZORA belum menerima respons dari server.\n\n"+(e.message||e),"ai");
+    addMessage(
+      creationFailure
+        ? creationErrorMessage(e)
+        : "ZORA belum menerima respons dari server.\n\n"+(e.message||e),
+      "ai"
+    );
+  }finally{
+    loading.style.display="none";
+    retryStatus.style.display="none";
+    isSending=false;
+    sendButton.disabled=micButton.disabled=uploadButton.disabled=false;
+    refreshSendState();
+    questionInput.focus();
   }
-  finally{loading.style.display="none";retryStatus.style.display="none";isSending=false;sendButton.disabled=micButton.disabled=uploadButton.disabled=false;refreshSendState();questionInput.focus()}
 }
 
 
@@ -894,10 +872,28 @@ async function sendMessage(){
    + semantic edit of uploaded files
    + direct chunked download (no Google Drive tab)
 ========================================================= */
+function normalizeCreationText(text){
+  let q=String(text||"").toLowerCase().trim();
+  // Suffix percakapan Indonesia: "pdfnya", "excelnya", "wordnya", dst.
+  q=q.replace(/\b(pdf|docx|xlsx|pptx|word|excel|powerpoint|presentasi|slide)(?:nya|nyaa|nyaaa)\b/g,"$1");
+  // Typo umum yang sering muncul dari chat/voice.
+  const replacements={
+    "pfd":"pdf","pdff":"pdf","pfdnya":"pdf","pff":"pdf",
+    "doc":"docx","dok":"docx","docxnya":"docx",
+    "excell":"excel","excellnya":"excel","xlxs":"xlsx","xslx":"xlsx",
+    "ppt":"pptx","pptxnya":"pptx","power point":"powerpoint",
+    "generet":"generate","genrate":"generate","gnerate":"generate",
+    "buatkanlah":"buatkan","bikinin":"bikin","jadikanlah":"jadikan"
+  };
+  Object.keys(replacements).forEach(k=>{
+    q=q.replace(new RegExp("\\b"+k.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")+"\\b","g"),replacements[k]);
+  });
+  return q;
+}
 function detectCreationFormat(text,attachments){
-  const q=String(text||"").toLowerCase();
+  const q=normalizeCreationText(text);
   if(/\b(docx|word|dokumen word)\b/.test(q))return "docx";
-  if(/\b(xlsx|excel|spreadsheet)\b/.test(q))return "xlsx";
+  if(/\b(xlsx|excel|spreadsheet|lembar kerja)\b/.test(q))return "xlsx";
   if(/\b(pdf)\b/.test(q))return "pdf";
   if(/\b(pptx|powerpoint|presentasi|slide|slides)\b/.test(q))return "pptx";
   const a=attachments&&attachments[0];
@@ -909,23 +905,35 @@ function detectCreationFormat(text,attachments){
   if(m.includes("presentationml")||n.endsWith(".pptx"))return "pptx";
   return "";
 }
+function isFormatOnlyRequest(q){
+  const s=normalizeCreationText(q).replace(/[!?.,]+$/g,"").trim();
+  return /^(pdf|file pdf|pdf file|docx|word|file word|word file|xlsx|excel|file excel|excel file|pptx|powerpoint|file pptx|presentasi|slide|file presentasi)$/.test(s);
+}
 function isCreationRequest(text,attachments){
-  const q=String(text||"").toLowerCase().trim();
-  const format=detectCreationFormat(text,attachments);
+  const raw=String(text||"").trim();
+  const q=normalizeCreationText(raw);
+  const format=detectCreationFormat(q,attachments);
   if(!format)return false;
 
-  const textOnlyIntent=/\b(buat|buatkan|bikin|susun|siapkan)\b[\s\S]{0,80}\b(kata[- ]?kata|kalimat|naskah|narasi|teks|poin|materi)\b/i.test(q)
-    || /\b(untuk mempresentasikan|untuk presentasi|naskah presentasi|materi presentasi|poin presentasi)\b/i.test(q);
-  if(textOnlyIntent && !/\b(file|pptx|powerpoint|xlsx|excel|pdf|docx|word|spreadsheet)\b/i.test(q)) return false;
+  // Perintah singkat seperti "pdf", "file pdf", "pdfnya" berarti
+  // buat file menggunakan konteks sumber yang paling relevan.
+  if(isFormatOnlyRequest(q))return true;
+
+  const textOnlyIntent=/\b(buat|buatkan|bikin|susun|siapkan)\b[\s\S]{0,100}\b(kata[- ]?kata|kalimat|naskah|narasi|teks|poin|materi)\b/i.test(q)
+    ||/\b(untuk mempresentasikan|untuk presentasi|naskah presentasi|materi presentasi|poin presentasi)\b/i.test(q);
+  if(textOnlyIntent&&!/\b(file|xlsx|excel|spreadsheet|pdf|docx|word|pptx|powerpoint|presentasi|slide)\b/i.test(q))return false;
 
   const analysisWords=/\b(analisis|analisa|baca|lihat|review|tinjau|evaluasi|cek|periksa|ringkas|rangkum|jelaskan|jelasin|apa isi|isi file|buat kata[- ]?kata|buat kalimat|buat naskah|buat narasi|buat teks|buat poin|untuk mempresentasikan)\b/i;
-  const explicitCreate=/\b(buat|buatkan|bikin|hasilkan|generate|jadikan|jadikanlah|konversi|convert|export|ekspor|siapkan|susun|buatlah)\b[\s\S]{0,100}\b(file|xlsx|excel|spreadsheet|pdf|docx|word|pptx|powerpoint|file presentasi|slide)\b/i;
-  const explicitEdit=/\b(edit|ubah|revisi|perbaiki|modifikasi|tambahkan|hapus|ganti|rapikan)\b[\s\S]{0,80}\b(file|dokumen|xlsx|excel|pdf|docx|word|pptx|powerpoint|slide)\b/i;
-  const explicitDownload=/\b(download|unduh|ekspor|export)\b[\s\S]{0,60}\b(file|xlsx|excel|pdf|docx|word|pptx|powerpoint)\b/i;
+  const formatWords="(?:file|xlsx|excel|spreadsheet|pdf|docx|word|pptx|powerpoint|presentasi|slide)";
+  const createVerb="(?:buat|buatkan|bikin|hasilkan|generate|jadikan|konversi|convert|export|ekspor|siapkan|susun|buatlah)";
+  const explicitCreate=new RegExp("\\b"+createVerb+"\\b[\\s\\S]{0,120}\\b"+formatWords+"\\b","i");
+  const explicitEdit=new RegExp("\\b(?:edit|ubah|revisi|perbaiki|modifikasi|tambahkan|hapus|ganti|rapikan)\\b[\\s\\S]{0,90}\\b"+formatWords+"\\b","i");
+  const explicitDownload=new RegExp("\\b(?:download|unduh|ekspor|export)\\b[\\s\\S]{0,70}\\b"+formatWords+"\\b","i");
 
-  if(analysisWords.test(q) && !explicitCreate.test(q) && !explicitEdit.test(q) && !explicitDownload.test(q)) return false;
-  return explicitCreate.test(q) || explicitEdit.test(q) || explicitDownload.test(q);
+  if(analysisWords.test(q)&&!explicitCreate.test(q)&&!explicitEdit.test(q)&&!explicitDownload.test(q))return false;
+  return explicitCreate.test(q)||explicitEdit.test(q)||explicitDownload.test(q);
 }
+
 function isEditRequest(text,attachments){
   if(!attachments||!attachments.length)return false;
   const q=String(text||"").toLowerCase();
@@ -1002,29 +1010,70 @@ function compactCreationContext(text){
   }
   return s.slice(0,3200);
 }
-function findBestCreationContext(instruction,attachments){
-  // Jika ada attachment, file adalah sumber utama dan context hanya pendukung.
-  if(attachments&&attachments.length){
-    return {text:"",sourceType:"attachment"};
-  }
-
+function normalizeContextTokens_(text){
+  return String(text||"").toLowerCase()
+    .replace(/[^a-z0-9\u00C0-\u024F\u1E00-\u1EFF\s]/g," ")
+    .split(/\s+/).filter(Boolean)
+    .filter(function(w){return w.length>=3;});
+}
+function creationTopicTokens_(text){
+  const stop=new Set(["buat","buatkan","bikin","buatlah","tolong","untuk","dengan","yang","dan","atau","dari","jadi","jadikan","menjadi","file","presentasi","presentasikan","pptx","ppt","pdf","docx","word","xlsx","excel","nya","dong","aja","nih","tuh","deh","saya","aku","kamu","bisa","mau","ingin","please"]);
+  const toks=normalizeContextTokens_(text);
+  const seen={}; const out=[];
+  toks.forEach(function(t){if(!stop.has(t)&&!seen[t]){seen[t]=1;out.push(t);}});
+  return out;
+}
+function contextRelevanceScore_(instruction, candidate){
+  const q=creationTopicTokens_(instruction);
+  if(!q.length)return 0;
+  const c=new Set(creationTopicTokens_(candidate));
+  let hits=0;
+  q.forEach(function(t){if(c.has(t))hits++;});
+  return hits/q.length;
+}
+function hasExplicitContextReference_(instruction){
   const q=String(instruction||"").toLowerCase();
-  const wantsConversation=/\b(percakapan|conversation|chat|riwayat|history|obrolan)\b/.test(q);
-
-  // Untuk pola natural seperti "analisa dulu ... lalu jadikan analisa tadi PDF",
-  // sumber utama HARUS jawaban analisis terakhir, bukan gabungan percakapan.
-  if(!wantsConversation && lastSubstantiveAssistantText && !isCreationConfirmationText(lastSubstantiveAssistantText)){
-    return {text:compactCreationContext(lastSubstantiveAssistantText),sourceType:"latest_analysis"};
+  return /\b(analisa tadi|analisis tadi|hasil tadi|jawaban tadi|yang tadi|seperti tadi|dari tadi|percakapan tadi|chat tadi|di atas|diatas|sebelumnya|jawaban sebelumnya|hasil sebelumnya|materi sebelumnya|data sebelumnya|jadikan (itu|ini)|ubah (itu|ini) menjadi|konversi (itu|ini)|buat .* dari (itu|ini))\b/.test(q)
+    || /\b(hasil|analisis|data|materi|laporan|teks|jawaban)\b[\s\S]{0,35}\b(tadi|sebelumnya|di atas|diatas)\b/.test(q);
+}
+function findBestCreationContext(instruction,attachments){
+  if(attachments&&attachments.length){
+    return {text:"",sourceType:"attachment",reason:"attachment_is_primary"};
   }
 
-  const recent=[];
-  for(let i=Math.max(0,conversationHistory.length-6);i<conversationHistory.length;i++){
-    const x=conversationHistory[i];
-    if(!x||!x.text)continue;
-    if(x.role==="assistant" && isCreationConfirmationText(x.text))continue;
-    recent.push((x.role==="user"?"[USER] ":"[ZOYA] ")+String(x.text));
+  const q=String(instruction||"").trim();
+  const wantsConversation=/\b(percakapan|conversation|chat|riwayat|history|obrolan)\b/i.test(q);
+  const explicit=hasExplicitContextReference_(q);
+
+  // CRITICAL: konteks lama hanya boleh dipakai jika pengguna secara eksplisit
+  // merujuknya atau jika topiknya sangat relevan. Jangan pernah memasukkan
+  // jawaban terakhir hanya karena kebetulan tersedia.
+  const latest=(lastSubstantiveAssistantText&&!isCreationConfirmationText(lastSubstantiveAssistantText))
+    ? String(lastSubstantiveAssistantText) : "";
+  const latestScore=contextRelevanceScore_(q,latest);
+
+  if(explicit && latest){
+    return {text:compactCreationContext(latest),sourceType:"explicit_latest_analysis",score:latestScore};
   }
-  return {text:recent.length?compactCreationContext(recent.join("\n\n")):"",sourceType:wantsConversation?"conversation":"recent_context"};
+
+  if(wantsConversation){
+    const recent=[];
+    for(let i=Math.max(0,conversationHistory.length-6);i<conversationHistory.length;i++){
+      const x=conversationHistory[i];
+      if(!x||!x.text)continue;
+      if(x.role==="assistant" && isCreationConfirmationText(x.text))continue;
+      recent.push((x.role==="user"?"[USER] ":"[ZOYA] ")+String(x.text));
+    }
+    return {text:recent.length?compactCreationContext(recent.join("\n\n")):"",sourceType:"conversation_requested",score:1};
+  }
+
+  // Relevansi harus cukup tinggi. Satu keyword umum tidak cukup untuk
+  // menjadikan percakapan lama sebagai sumber utama.
+  if(latest && latestScore>=0.45){
+    return {text:compactCreationContext(latest),sourceType:"relevant_latest_context",score:latestScore};
+  }
+
+  return {text:"",sourceType:"new_creation",score:0};
 }
 async function runCreationEngine(instruction,attachments){
   const currentUserId=getZoyaUserId();
@@ -1039,7 +1088,9 @@ async function runCreationEngine(instruction,attachments){
     user_id:getZoyaUserId(),
     context:source.text,
     source_context:source.text,
-    source_type:source.sourceType
+    source_type:source.sourceType,
+    context_explicit:(hasExplicitContextReference_(instruction)?"1":"0"),
+    context_score:String(Number(source.score||0).toFixed(3))
   };
 
   // PENTING: attachment harus diteruskan untuk CREATE maupun EDIT.
@@ -1055,7 +1106,19 @@ async function runCreationEngine(instruction,attachments){
 }
 function autoResizeTextarea(){questionInput.style.height="auto";questionInput.style.height=Math.min(questionInput.scrollHeight,150)+"px"}
 /* VOICE */
-function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){micButton.onclick=()=>alert("Speech-to-Text tidak didukung browser ini. Gunakan Chrome atau Edge terbaru.");return}recognition=new SR();recognition.lang="id-ID";recognition.continuous=false;recognition.interimResults=true;recognition.maxAlternatives=1;function help(msg){voiceStatus.textContent=msg;voiceStatus.classList.add("active");voicePermission.classList.add("active");micButton.classList.add("permission-needed")}function hide(){voicePermission.classList.remove("active");micButton.classList.remove("permission-needed")}async function permission(){if(!navigator.mediaDevices?.getUserMedia){help("Browser tidak menyediakan akses microphone. Gunakan Chrome atau Edge.");return false}try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());hide();return true}catch(e){help(e.name==="NotAllowedError"?"Izin microphone ditolak. Izinkan microphone melalui ikon kunci di address bar.":e.name==="NotFoundError"?"Microphone tidak ditemukan.":"ZORA tidak bisa mengakses microphone: "+e.name);return false}}voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};recognition.onstart=()=>{isListening=true;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};recognition.onresult=e=>{let t="";for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;t=t.trim();if(t){questionInput.value=voiceBaseText?(voiceBaseText+" "+t):t;autoResizeTextarea()}};recognition.onerror=e=>{if(e.error==="not-allowed")help("Akses microphone ditolak. Izinkan microphone dari ikon kunci di address bar.");else if(e.error==="no-speech"){voiceStatus.textContent="Tidak terdengar suara. Coba bicara lagi.";voiceStatus.classList.add("active")}else help("Speech-to-Text gagal: "+e.error)};recognition.onend=()=>{isListening=false;micButton.classList.remove("listening");micButton.textContent="🎤";voiceStatus.classList.remove("active")};micButton.onclick=async()=>{if(isSending)return;if(isListening){recognition.stop();return}if(await permission()){voiceBaseText=questionInput.value.trim();try{recognition.start()}catch(e){setTimeout(()=>{try{if(!isListening)recognition.start()}catch(x){}},300)}}}}
+function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){micButton.onclick=()=>alert("Speech-to-Text tidak didukung browser ini. Gunakan Chrome atau Edge terbaru.");return}recognition=new SR();recognition.lang="id-ID";recognition.continuous=false;recognition.interimResults=true;recognition.maxAlternatives=1;function help(msg){voiceStatus.textContent=msg;voiceStatus.classList.add("active");voicePermission.classList.add("active");micButton.classList.add("permission-needed")}function hide(){voicePermission.classList.remove("active");micButton.classList.remove("permission-needed")}async function permission(){if(!navigator.mediaDevices?.getUserMedia){help("Browser tidak menyediakan akses microphone. Gunakan Chrome atau Edge.");return false}try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());hide();return true}catch(e){help(e.name==="NotAllowedError"?"Izin microphone ditolak. Izinkan microphone melalui ikon kunci di address bar.":e.name==="NotFoundError"?"Microphone tidak ditemukan.":"ZORA tidak bisa mengakses microphone: "+e.name);return false}}voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};recognition.onstart=()=>{isListening=true;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};recognition.onresult=e=>{
+  let t="";
+  for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;
+  t=t.trim();
+  if(t){
+    questionInput.value=voiceBaseText?(voiceBaseText+" "+t):t;
+    autoResizeTextarea();
+    const last=e.results[e.results.length-1];
+    if(last&&last.isFinal){
+      setTimeout(()=>{if(!isSending&&!isListening&&questionInput.value.trim())sendMessage()},120);
+    }
+  }
+};recognition.onerror=e=>{if(e.error==="not-allowed")help("Akses microphone ditolak. Izinkan microphone dari ikon kunci di address bar.");else if(e.error==="no-speech"){voiceStatus.textContent="Tidak terdengar suara. Coba bicara lagi.";voiceStatus.classList.add("active")}else help("Speech-to-Text gagal: "+e.error)};recognition.onend=()=>{isListening=false;micButton.classList.remove("listening");micButton.textContent="🎤";voiceStatus.classList.remove("active")};micButton.onclick=async()=>{if(isSending)return;if(isListening){recognition.stop();return}if(await permission()){voiceBaseText=questionInput.value.trim();try{recognition.start()}catch(e){setTimeout(()=>{try{if(!isListening)recognition.start()}catch(x){}},300)}}}}
 
 /* =========================================================
    DOCUMENT UPLOAD — FINAL POST CHUNK VERSION
@@ -1068,7 +1131,7 @@ function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeec
    ========================================================= */
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
-const UPLOAD_CHUNK_BYTES = 256 * 1024;
+const UPLOAD_CHUNK_BYTES = 512 * 1024;
 const ALLOWED_UPLOAD_EXTENSIONS = ["pdf","txt","doc","docx","xls","xlsx","csv","ppt","pptx","jpg","jpeg","png","webp"];
 let isUploading=false;
 let uploadQueue=[];
@@ -1078,10 +1141,10 @@ let pendingAttachments=[];
 function fileIcon(file){const ext=file.name.toLowerCase().split(".").pop();if(["jpg","jpeg","png","webp"].includes(ext))return"🖼️";if(ext==="pdf")return"📄";if(["xls","xlsx","csv"].includes(ext))return"📊";if(["doc","docx"].includes(ext))return"📝";return"📎"}
 function createAttachmentCard(file){const card=document.createElement("div");card.className="upload-attachment";card.innerHTML=`<div class="upload-file-icon">${fileIcon(file)}</div><div class="upload-file-info"><div class="upload-file-name"></div><div class="upload-file-state">Menunggu...</div></div><div class="upload-file-spinner"></div><div class="upload-file-check">✓</div><button class="upload-file-cancel" type="button" aria-label="Batalkan upload" title="Batalkan">×</button>`;card.querySelector(".upload-file-name").textContent=file.name;uploadAttachments.appendChild(card);return{card,state:card.querySelector(".upload-file-state"),spinner:card.querySelector(".upload-file-spinner"),check:card.querySelector(".upload-file-check"),cancel:card.querySelector(".upload-file-cancel")}}
 function setCardProgress(ui,percent){ui.card.classList.add("active");ui.state.textContent=percent>=96?"Menyiapkan file...":"Mengupload..."}
-function finishCard(ui){ui.spinner.classList.add("done");ui.check.classList.add("active");ui.state.textContent="Siap";ui.cancel.style.display="none";ui.card.classList.add("done")}
+function finishCard(ui){ui.spinner.classList.add("done");ui.check.classList.add("active");ui.state.textContent="Siap • klik × untuk melepas";ui.cancel.style.display="flex";ui.cancel.disabled=false;ui.card.classList.add("done")}
 function failCard(ui,msg){ui.spinner.classList.add("done");ui.state.textContent=msg||"Gagal";ui.card.classList.add("error")}
 function removeCard(ui){if(ui&&ui.card&&ui.card.parentNode)ui.card.parentNode.removeChild(ui.card)}
-function clearPendingAttachments(){pendingAttachments=[];uploadAttachments.innerHTML=""}
+function clearPendingAttachments(){pendingAttachments=[];uploadQueue=[];activeUpload=null;uploadAttachments.innerHTML=""}
 function attachmentMetadata(){return pendingAttachments.map(x=>({fileId:x.fileId,fileName:x.fileName,mimeType:x.mimeType,size:x.size,url:x.url||""}))}
 
 // =========================================================
@@ -1166,28 +1229,119 @@ function uploadJsonp(params, timeoutMs){
 }
 
 async function uploadFileToBackend(file,ui){
- if(!file)throw new Error("File tidak dipilih.");if(file.size<=0)throw new Error("File kosong.");if(file.size>MAX_UPLOAD_BYTES)throw new Error("File terlalu besar. Maksimal 25 MB.");
- const totalChunks=Math.ceil(file.size/UPLOAD_CHUNK_BYTES);let sessionId=null;
- try{
-  const init=await uploadJsonp({action:"upload_init",fileName:file.name,mimeType:file.type||"application/octet-stream",fileSize:file.size,totalChunks});sessionId=init.sessionId;if(!sessionId)throw new Error("Server tidak memberikan session upload.");
-  const chunkSize=Math.min(Number(init.chunkSize)>0?Number(init.chunkSize):UPLOAD_CHUNK_BYTES,UPLOAD_CHUNK_BYTES);const finalTotalChunks=Math.ceil(file.size/chunkSize);
-  for(let chunkIndex=0;chunkIndex<finalTotalChunks;chunkIndex++){
-   if(activeUpload&&activeUpload.cancelled)throw new Error("UPLOAD_CANCELLED");
-   const start=chunkIndex*chunkSize,end=Math.min(start+chunkSize,file.size),buffer=await file.slice(start,end).arrayBuffer(),base64=arrayBufferToBase64(buffer);setCardProgress(ui,5+((chunkIndex+1)/finalTotalChunks)*88);
-   let uploaded=false,lastError=null;
-   for(let attempt=1;attempt<=3;attempt++){try{await postUploadChunk(sessionId,chunkIndex,finalTotalChunks,base64);await waitForChunk(sessionId,chunkIndex);uploaded=true;break}catch(err){lastError=err;if(activeUpload&&activeUpload.cancelled)throw new Error("UPLOAD_CANCELLED");if(attempt<3)await wait(attempt*700)}}
-   if(!uploaded)throw new Error("Gagal mengupload bagian "+(chunkIndex+1)+". "+(lastError?lastError.message:""));
+  if(!file)throw new Error("File tidak dipilih.");
+  if(file.size<=0)throw new Error("File kosong.");
+  if(file.size>MAX_UPLOAD_BYTES)throw new Error("File terlalu besar. Maksimal 25 MB.");
+
+  const totalChunks=Math.ceil(file.size/UPLOAD_CHUNK_BYTES);
+  let sessionId=null;
+
+  try{
+    const init=await uploadJsonp({
+      action:"upload_init",
+      fileName:file.name,
+      mimeType:file.type||"application/octet-stream",
+      fileSize:file.size,
+      totalChunks
+    },120000);
+
+    sessionId=init.sessionId;
+    if(activeUpload)activeUpload.sessionId=sessionId;
+    if(!sessionId)throw new Error("Server tidak memberikan session upload.");
+
+    const chunkSize=Math.min(
+      Number(init.chunkSize)>0?Number(init.chunkSize):UPLOAD_CHUNK_BYTES,
+      UPLOAD_CHUNK_BYTES
+    );
+    const finalTotalChunks=Math.ceil(file.size/chunkSize);
+
+    for(let chunkIndex=0;chunkIndex<finalTotalChunks;chunkIndex++){
+      if(activeUpload&&activeUpload.cancelled)throw new Error("UPLOAD_CANCELLED");
+
+      const start=chunkIndex*chunkSize;
+      const end=Math.min(start+chunkSize,file.size);
+      const buffer=await file.slice(start,end).arrayBuffer();
+      const base64=arrayBufferToBase64(buffer);
+
+      setCardProgress(ui,5+((chunkIndex+1)/finalTotalChunks)*90);
+
+      let uploaded=false,lastError=null;
+      for(let attempt=1;attempt<=3;attempt++){
+        try{
+          await postUploadChunk(sessionId,chunkIndex,finalTotalChunks,base64);
+          // doPost hanya mengembalikan response setelah chunk ditulis ke Drive.
+          // Tidak perlu polling upload_status 30 x 500 ms per chunk.
+          uploaded=true;
+          break;
+        }catch(err){
+          lastError=err;
+          if(activeUpload&&activeUpload.cancelled)throw new Error("UPLOAD_CANCELLED");
+          if(attempt<3)await wait(attempt*500);
+        }
+      }
+
+      if(!uploaded){
+        throw new Error(
+          "Gagal mengupload bagian "+(chunkIndex+1)+". "+
+          (lastError?lastError.message:"")
+        );
+      }
+    }
+
+    if(activeUpload&&activeUpload.cancelled)throw new Error("UPLOAD_CANCELLED");
+    setCardProgress(ui,98);
+
+    const result=await uploadJsonp({
+      action:"upload_complete",
+      sessionId,
+      fileName:file.name,
+      mimeType:file.type||"application/octet-stream"
+    },120000);
+
+    return result;
+  }catch(error){
+    if(sessionId){
+      try{
+        await uploadJsonp({action:"upload_abort",sessionId},30000);
+      }catch(e){}
+    }
+    throw error;
   }
-  setCardProgress(ui,96);const result=await uploadJsonp({action:"upload_complete",sessionId,fileName:file.name,mimeType:file.type||"application/octet-stream"},120000);finishCard(ui);return result;
- }catch(error){if(sessionId){try{await uploadJsonp({action:"upload_abort",sessionId},30000)}catch(e){}}throw error}
 }
 
 function enqueueFiles(files){Array.from(files||[]).forEach(file=>{const ext=file.name.toLowerCase().split(".").pop();if(!ALLOWED_UPLOAD_EXTENSIONS.includes(ext)||file.size>MAX_UPLOAD_BYTES)return;const ui=createAttachmentCard(file);const item={file,ui,status:"queued",cancelled:false};ui.cancel.onclick=()=>cancelQueuedOrActive(item);uploadQueue.push(item)});refreshSendState();processUploadQueue()}
-async function processUploadQueue(){if(isUploading)return;const item=uploadQueue.find(x=>x.status==="queued");if(!item){refreshSendState();return}isUploading=true;item.status="uploading";activeUpload=item;refreshSendState();try{const result=await uploadFileToBackend(item.file,item.ui);if(item.cancelled)throw new Error("UPLOAD_CANCELLED");pendingAttachments.push({fileId:result.fileId,fileName:result.fileName,mimeType:result.mimeType,size:result.size,url:result.url});
+async function processUploadQueue(){if(isUploading)return;const item=uploadQueue.find(x=>x.status==="queued");if(!item){refreshSendState();return}isUploading=true;item.status="uploading";activeUpload=item;refreshSendState();try{const result=await uploadFileToBackend(item.file,item.ui);if(item.cancelled)throw new Error("UPLOAD_CANCELLED");item.fileId=result.fileId;pendingAttachments.push({fileId:result.fileId,fileName:result.fileName,mimeType:result.mimeType,size:result.size,url:result.url});
     // Indexing RAG tidak menahan proses upload.
     indexKnowledgeInBackground(result.fileId,result.fileName);
-    item.status="done"}catch(error){item.status=error.message==="UPLOAD_CANCELLED"?"cancelled":"error";if(error.message!=="UPLOAD_CANCELLED")failCard(item.ui,error.message||"Gagal");else removeCard(item.ui)}finally{activeUpload=null;isUploading=false;uploadQueue=uploadQueue.filter(x=>x.status!=="done"&&x.status!=="cancelled"&&x.status!=="error");documentInput.value="";imageInput.value="";refreshSendState();processUploadQueue()}}
-function cancelQueuedOrActive(item){if(item.status==="queued"){item.status="cancelled";removeCard(item.ui);uploadQueue=uploadQueue.filter(x=>x!==item);refreshSendState();return}if(item.status==="uploading"&&activeUpload===item){item.cancelled=true;item.ui.cancel.disabled=true;if(activePostCancel)try{activePostCancel()}catch(e){}}}
+    item.status="done"}catch(error){item.status=error.message==="UPLOAD_CANCELLED"?"cancelled":"error";if(error.message!=="UPLOAD_CANCELLED")failCard(item.ui,error.message||"Gagal");else removeCard(item.ui)}finally{activeUpload=null;isUploading=false;uploadQueue=uploadQueue.filter(x=>x.status!=="cancelled"&&x.status!=="error");documentInput.value="";imageInput.value="";refreshSendState();processUploadQueue()}}
+function cancelQueuedOrActive(item){
+  if(item.status==="queued"){
+    item.status="cancelled";
+    removeCard(item.ui);
+    uploadQueue=uploadQueue.filter(x=>x!==item);
+    refreshSendState();
+    return;
+  }
+  if(item.status==="done"){
+    // File yang sudah selesai di-upload dilepas dari composer.
+    // Jangan hapus file Drive karena file mungkin sudah menjadi knowledge source.
+    item.status="cancelled";
+    pendingAttachments=pendingAttachments.filter(x=>x.fileId!==item.fileId);
+    removeCard(item.ui);
+    uploadQueue=uploadQueue.filter(x=>x!==item);
+    refreshSendState();
+    return;
+  }
+  if(item.status==="uploading"&&activeUpload===item){
+    item.cancelled=true;
+    item.ui.cancel.disabled=true;
+    const sid=activeUpload.sessionId||null;
+    if(activePostCancel)try{activePostCancel()}catch(e){}
+    if(sid){
+      uploadJsonp({action:"upload_abort",sessionId:sid},30000).catch(()=>{});
+    }
+  }
+}
 
 function closeAttachMenu(){attachMenu.classList.remove("active");attachMenu.setAttribute("aria-hidden","true")}
 function toggleAttachMenu(){if(isSending)return;const open=attachMenu.classList.toggle("active");attachMenu.setAttribute("aria-hidden",open?"false":"true")}
@@ -1267,56 +1421,6 @@ function postUploadChunk(sessionId,chunkIndex,totalChunks,base64Data){
   });
 }
 
-/*
- * Setelah POST selesai, verifikasi bahwa chunk benar-benar
- * sudah masuk ke Drive melalui upload_status.
- */
-async function waitForChunk(
-  sessionId,
-  chunkIndex
-){
-
-  const maxAttempts = 30;
-
-  for(
-    let attempt = 1;
-    attempt <= maxAttempts;
-    attempt++
-  ){
-
-    try{
-
-      const result =
-        await uploadJsonp({
-          action:"upload_status",
-          sessionId:sessionId,
-          chunkIndex:chunkIndex
-        },30000);
-
-      if(result.received === true){
-        return result;
-      }
-
-    }catch(error){
-
-      console.warn(
-        "UPLOAD STATUS RETRY:",
-        chunkIndex,
-        attempt,
-        error
-      );
-    }
-
-    await wait(500);
-  }
-
-  throw new Error(
-    "Server tidak mengonfirmasi bagian " +
-    (chunkIndex + 1) +
-    "."
-  );
-}
-
 function arrayBufferToBase64(buffer){
 
   const bytes =
@@ -1359,6 +1463,10 @@ questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key===
 (function startZoyaAuthentication(){
   zoyaSession=loadZoyaSession();
   updateZoyaAuthUI();
+  if(zoyaSession){
+    try{loadMemory();}catch(e){console.warn("Load memory saat refresh gagal:",e);}
+    try{setupVoiceInput();}catch(e){console.warn("Voice init saat refresh gagal:",e);}
+  }
   let attempts=0;
   const timer=setInterval(function(){
     attempts++;
