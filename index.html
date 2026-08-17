@@ -822,30 +822,29 @@ function semanticRoute(input){
 }
 function applySemanticRouteToCreation(text,route){
   if(!route||route.intent!=="CREATE_FILE")return text;
-  return String(route.normalized_input||text).trim() || text;
+  const normalized=String(route.normalized_input||text).trim();
+  const fmt=String(route.format||"").toLowerCase();
+  if(!normalized)return text;
+  if(["pdf","pptx","docx","xlsx"].includes(fmt) && !new RegExp("\\b"+fmt+"\\b","i").test(normalized)) return normalized+" "+fmt;
+  return normalized;
 }
 function semanticCreationDecision(text,attachments,route){
-  if(!route)return isCreationRequest(text,attachments);
-  if(route.intent!=="CREATE_FILE")return false;
-  const fmt=String(route.format||"").toLowerCase();
-  return ["pdf","pptx","docx","xlsx"].includes(fmt);
+  if(route) return route.success===true && route.intent==="CREATE_FILE" && ["pdf","pptx","docx","xlsx"].includes(String(route.format||"").toLowerCase());
+  return isCreationRequest(text,attachments);
 }
-function askZora(question,history,attachments=[],attachmentOnly=false){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId = getZoyaUserId();
-if(!currentUserId){
-  reject(new Error("Silakan login dengan Google terlebih dahulu."));
-  return;
+function localSemanticFallback(text,attachments){
+  const raw=String(text||"").trim(); let q=raw.toLowerCase();
+  const map={"bkin":"bikin","bikinin":"bikin","bwt":"buat","pfd":"pdf","pdff":"pdf","pff":"pdf","pdfnya":"pdf","pptnya":"pptx","ppt":"pptx","pptxnya":"pptx","xlxs":"xlsx","xslx":"xlsx","dok":"docx","docxnya":"docx","yg":"yang","jd":"jadi","jadiin":"jadikan","gmn":"gimana","treding":"trading","tredding":"trading","tau":"tahu","cariin":"cari","carikan":"cari"};
+  Object.keys(map).sort((a,b)=>b.length-a.length).forEach(k=>{q=q.replace(new RegExp("(^|\\s)"+k.replace(/[.*+?^${}()|[\\]\\]/g,"\\$&")+"(?=\\s|$)","g"),"$1"+map[k]);});
+  const fmt=/\bpdf\b/.test(q)?"pdf":/\b(pptx|powerpoint|presentasi|slide)\b/.test(q)?"pptx":/\b(docx|word)\b/.test(q)?"docx":/\b(xlsx|excel|spreadsheet)\b/.test(q)?"xlsx":"";
+  const ref=/\b(yang tadi|tadi|sebelumnya|kemarin|di atas|analisa tadi|analisis tadi)\b/.test(q);
+  const create=/\b(buat|bikin|jadikan|convert|konversi|generate|siapkan|susun|export|ekspor|download|unduh)\b/.test(q) || /^(pdf|pptx|docx|xlsx|file pdf|file pptx|file docx|file xlsx)\b/.test(q) || (!!fmt && /\bdong\b/.test(q));
+  if(fmt&&create)return {success:true,core_version:"local-fallback",normalized_input:q.replace(/\s+/g," ").trim(),intent:"CREATE_FILE",format:fmt,context_policy:ref?"ALLOW_PREVIOUS_RELEVANT":"BLOCK",memory_policy:ref?"RELEVANT_ONLY":"BLOCK",backend_target:"MAIN_CREATION",safe_to_forward:true};
+  if(/\b(cari|carikan|coba cari|search|telusuri|cek di web|di internet|berita terbaru|latest|terbaru)\b/.test(q))return {success:true,core_version:"local-fallback",normalized_input:q,intent:"WEB_SEARCH",format:"",context_policy:"ALLOW_RELEVANT",memory_policy:"RELEVANT_ONLY",backend_target:"MAIN_CHAT",safe_to_forward:true};
+  return {success:true,core_version:"local-fallback",normalized_input:q||raw,intent:"CHAT",format:"",context_policy:"ALLOW_RELEVANT",memory_policy:"RELEVANT_ONLY",backend_target:"MAIN_CHAT",safe_to_forward:true};
 }
-const p=new URLSearchParams({
-  q:String(question),
-  history:JSON.stringify(prepareHistory(history)),
-  attachments:JSON.stringify(attachments||[]),
-  attachment_only:attachmentOnly?"1":"0",
-  user_id:currentUserId,
-  callback:cb,
-  _:Date.now()
-});script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},REQUEST_TIMEOUT)})}
-const wait=ms=>new Promise(r=>setTimeout(r,ms));
-async function askZoraWithRetry(q,h,attachments=[],attachmentOnly=false){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments,attachmentOnly);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await wait(i*1500)}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
+function askZora(question,history,attachments=[],attachmentOnly=false,route=null){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId=getZoyaUserId();if(!currentUserId){reject(new Error("Silakan login dengan Google terlebih dahulu."));return;}const p=new URLSearchParams({q:String(question),history:JSON.stringify(prepareHistory(history)),attachments:JSON.stringify(attachments||[]),attachment_only:attachmentOnly?"1":"0",user_id:currentUserId,callback:cb,_:Date.now()});if(route&&route.intent){p.set("zoya_core","1");p.set("zoya_intent",String(route.intent));p.set("zoya_format",String(route.format||""));p.set("zoya_normalized_input",String(route.normalized_input||question));p.set("context_policy",String(route.context_policy||""));p.set("memory_policy",String(route.memory_policy||""));}script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},REQUEST_TIMEOUT)})}
+async function askZoraWithRetry(q,h,attachments=[],attachmentOnly=false,route=null){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments,attachmentOnly,route);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await wait(i*1500)}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
 function addUserMessageWithAttachments(text,attachments){
   const m=document.createElement("div");m.className="message user";
   const wrap=document.createElement("div");wrap.className="bubble";wrap.textContent=text;
@@ -858,78 +857,47 @@ async function sendMessage(){
   const q=questionInput.value.trim();
   const attachments=attachmentMetadata();
   if(!q&&!attachments.length)return;
-
   const attachmentOnly=!q&&attachments.length>0;
   const finalQuestion=q||(attachmentOnly?"Tolong analisis file yang saya kirim.":"");
   if(!finalQuestion)return;
-
   isSending=true;
   sendButton.disabled=micButton.disabled=uploadButton.disabled=true;
   if(welcome?.parentNode)welcome.remove();
   addUserMessageWithAttachments(finalQuestion,attachments);
-
-  // Attachment sudah menjadi bagian pesan. Composer dibersihkan tanpa
-  // menghapus metadata yang sudah disalin ke variabel lokal.
   clearPendingAttachments();
-
-  // Jika pengguna hanya mengirim file, jangan bawa percakapan lama.
-  // Ini mencegah gambar baru "menempel" ke topik chat sebelumnya.
-  const h=attachmentOnly?[]:prepareHistory(conversationHistory);
-
   questionInput.value="";
   autoResizeTextarea();
   loading.style.display="block";
-
   let creationMode=false;
   try{
-    // Semantic Router menjadi decision layer utama. Router lama tetap menjadi fallback
-    // jika endpoint router gagal/timeout. Tidak mengubah backend utama.
-    const route=await semanticRoute(finalQuestion);
-    const routedQuestion=route&&route.normalized_input?String(route.normalized_input).trim():finalQuestion;
-    const creationByRoute=semanticCreationDecision(finalQuestion,attachments,route);
-    const creationByLegacy=!route&&isCreationRequest(finalQuestion,attachments);
-
-    if(creationByRoute||creationByLegacy){
+    let route=await semanticRoute(finalQuestion);
+    if(!route)route=localSemanticFallback(finalQuestion,attachments);
+    if(!route||route.success!==true)throw new Error("Semantic Router tidak memberikan keputusan.");
+    const routedQuestion=String(route.normalized_input||finalQuestion).trim()||finalQuestion;
+    const isCreate=semanticCreationDecision(finalQuestion,attachments,route);
+    const blocked=String(route.context_policy||"").toUpperCase()==="BLOCK";
+    const h=attachmentOnly||blocked?[]:prepareHistory(conversationHistory);
+    if(isCreate){
       creationMode=true;
-      const creationInstruction=creationByRoute?applySemanticRouteToCreation(finalQuestion,route):finalQuestion;
-      const result=await runCreationEngine(creationInstruction,attachments);
+      const result=await runCreationEngine(applySemanticRouteToCreation(finalQuestion,route),attachments);
       validateCreationResult(result);
       conversationHistory.push({role:"user",text:finalQuestion});
       saveMemory();
       addCreationResult(result);
       return;
     }
-
     const analysisQuestion=attachments.length>1
-      ? (routedQuestion+"\n\n[MODE ANALISIS MULTI-FILE]\nAnalisis seluruh attachment yang saya kirim sebagai satu konteks. Bandingkan dan hubungkan informasi antar-file bila relevan. Jangan mengabaikan attachment yang relevan.")
+      ? routedQuestion+"\n\n[MODE ANALISIS MULTI-FILE]\nAnalisis seluruh attachment yang saya kirim sebagai satu konteks. Bandingkan dan hubungkan informasi antar-file bila relevan. Jangan mengabaikan attachment yang relevan."
       : routedQuestion;
-
-    const analysisQuestionWithRouting=route&&route.intent?analysisQuestion:"";
-
-    const r=await askZoraWithRetry(
-      analysisQuestionWithRouting||analysisQuestion,
-      h,
-      attachments,
-      attachmentOnly
-    );
+    const r=await askZoraWithRetry(analysisQuestion,h,attachments,attachmentOnly,route);
     const a=String(r.answer||"").trim();
     if(!a)throw new Error("ZORA mengembalikan jawaban kosong.");
-
-    conversationHistory.push(
-      {role:"user",text:finalQuestion},
-      {role:"assistant",text:a}
-    );
+    conversationHistory.push({role:"user",text:finalQuestion},{role:"assistant",text:a});
     lastSubstantiveAssistantText=a;
     saveMemory();
     addMessage(a,"ai");
   }catch(e){
-    const creationFailure=creationMode||isCreationRequest(finalQuestion,attachments);
-    addMessage(
-      creationFailure
-        ? creationErrorMessage(e)
-        : "ZORA belum menerima respons dari server.\n\n"+(e.message||e),
-      "ai"
-    );
+    addMessage(creationMode?creationErrorMessage(e):"ZORA belum menerima respons dari server.\n\n"+(e.message||e),"ai");
   }finally{
     loading.style.display="none";
     retryStatus.style.display="none";
