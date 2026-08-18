@@ -1453,7 +1453,7 @@ async function uploadFileToBackend(file,ui){
         }catch(err){
           lastError=err;
           if(activeUpload&&activeUpload.cancelled)throw new Error("UPLOAD_CANCELLED");
-          if(attempt<3)await wait(attempt*500);
+          if(attempt<3)await new Promise(resolve=>setTimeout(resolve,attempt*500));
         }
       }
 
