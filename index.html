@@ -859,7 +859,7 @@ function getZoyaAuthToken() {
 
 
 
-const MEMORY_KEY="ZORA_AI_MEMORY_V11",MAX_HISTORY_MESSAGES=8,MAX_HISTORY_CHARS=1200,MAX_RETRIES=2,REQUEST_TIMEOUT=30000;
+const MEMORY_KEY="ZORA_AI_MEMORY_V11",MAX_HISTORY_MESSAGES=8,MAX_HISTORY_CHARS=1200,MAX_RETRIES=1,REQUEST_TIMEOUT=20000;
 let conversationHistory=[],lastSubstantiveAssistantText="",isSending=false,recognition=null,isListening=false,voiceBaseText="",voiceCommittedText="",voiceInterimText="";
 const $=id=>document.getElementById(id),questionInput=$("question"),chat=$("chat"),loading=$("loading"),sendButton=$("send"),welcome=$("welcome"),retryStatus=$("retryStatus"),micButton=$("mic"),voiceStatus=$("voiceStatus"),voicePermission=$("voicePermission"),voicePermissionButton=$("voicePermissionButton"),voicePermissionText=$("voicePermissionText"),uploadButton=$("uploadButton"),attachWrap=$("attachWrap"),attachMenu=$("attachMenu"),attachImage=$("attachImage"),attachCamera=$("attachCamera"),attachFile=$("attachFile"),attachVoice=$("attachVoice"),documentInput=$("documentInput"),imageInput=$("imageInput"),cameraInput=$("cameraInput"),uploadAttachments=$("uploadAttachments");
 function userMemoryKey(){const uid=getZoyaUserId();return uid?MEMORY_KEY+"_"+uid:MEMORY_KEY+"_ANONYMOUS"}
@@ -873,19 +873,21 @@ function semanticRoute(input){
   return new Promise((resolve)=>{
     const text=String(input||"").trim();
     if(!text){resolve(null);return;}
-
-    // Fast path: obvious intents do not need an extra network round-trip.
-    // This removes the artificial 8s delay for common chat/file commands.
     const local=localSemanticFallback(text,[]);
-    const lower=text.toLowerCase().trim();
-    const obviousChat=/^(halo|haloo|hai|hallo|hi|hey|pagi|siang|sore|malam|test|tes|ok|oke|okei|thanks|makasih|terima kasih)[!.?, ]*$/i.test(lower);
-    const obviousCreate=/\b(pdf|pfd|ppt|pptx|pptnya|pfdnya|docx|word|xlsx|excel|file pdf|file pptx|file docx|file xlsx)\b/i.test(lower) && /\b(buat|bikin|bkin|bwt|jadikan|jadiin|buatkan|generate|export|dong|nya)\b/i.test(lower);
-    if(obviousChat || obviousCreate){ resolve(local); return; }
-
+    const lower=local.normalized_input || text.toLowerCase().trim();
+    const words=lower.split(/\s+/).filter(Boolean);
+    const explicitContext=/\b(yang tadi|tadi|sebelumnya|kemarin|barusan|di atas|yang kemarin|lanjutin|lanjutkan|ingat|kamu ingat|ingat nggak|ingat ga)\b/i.test(lower);
+    const explicitWeb=/\b(cari|carikan|cari tahu|cari tau|search|telusuri|cek di web|di internet|berita|terbaru|terkini|hari ini|harga|review|alamat|website|versi terbaru|update terbaru|cuaca|kurs)\b/i.test(lower);
+    const obviousChat=/^(halo|haloo|hai|hallo|hi|hey|pagi|siang|sore|malam|test|tes|ok|oke|okei|thanks|makasih|terima kasih|iya|ya|wkwk|hehe)[!.?, ]*$/i.test(lower);
+    const obviousCreate=local.intent==="CREATE_FILE";
+    const shortPlainChat=(words.length<=5 && !explicitContext && !explicitWeb && !obviousCreate && !/\?$/.test(lower)) || (/^(apa itu|siapa|gimana|gmn|knp|kenapa|apaan|apa kabar)\b/i.test(lower) && words.length<=6 && !explicitWeb);
+    if(obviousChat || obviousCreate || (shortPlainChat && local.intent==="CHAT")){
+      resolve(local); return;
+    }
     const cb="zoraCoreCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2,10);
     const script=document.createElement("script");
     let done=false;
-    const timeout=setTimeout(()=>finish(local),1200);
+    const timeout=setTimeout(()=>finish(local),600);
     function cleanup(){clearTimeout(timeout);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}
     function finish(data){if(done)return;done=true;cleanup();resolve(data&&data.success===true?data:local)}
     window[cb]=finish;
@@ -927,15 +929,17 @@ function semanticCreationDecision(text,attachments,route){
   return isCreationRequest(text,attachments);
 }
 function localSemanticFallback(text,attachments){
-  const raw=String(text||"").trim(); let q=raw.toLowerCase();
-  const map={"bkin":"bikin","bikinin":"bikin","bwt":"buat","pfd":"pdf","pdff":"pdf","pff":"pdf","pdfnya":"pdf","pptnya":"pptx","ppt":"pptx","pptxnya":"pptx","xlxs":"xlsx","xslx":"xlsx","dok":"docx","docxnya":"docx","yg":"yang","jd":"jadi","jadiin":"jadikan","gmn":"gimana","treding":"trading","tredding":"trading","tau":"tahu","cariin":"cari","carikan":"cari"};
+  const raw=String(text||"").trim();
+  let q=raw.toLowerCase();
+  const map={"bkin":"bikin","bikinin":"bikin","bwt":"buat","bgt":"banget","gmn":"gimana","knp":"kenapa","gk":"nggak","ga":"nggak","gak":"nggak","ngga":"nggak","enggak":"nggak","gw":"saya","gue":"saya","gua":"saya","w":"saya","lu":"kamu","lo":"kamu","loe":"kamu","elu":"kamu","ente":"kamu","yg":"yang","dgn":"dengan","sm":"sama","sama2":"sama-sama","udh":"sudah","udah":"sudah","blm":"belum","dr":"dari","skrg":"sekarang","bsk":"besok","td":"tadi","trs":"terus","trus":"terus","lg":"lagi","klo":"kalau","kalo":"kalau","jd":"jadi","jadiin":"jadikan","jdin":"jadikan","jgn":"jangan","pake":"pakai","apaan":"apa itu","nih":"ini","tuh":"itu","pfd":"pdf","pdff":"pdf","pff":"pdf","pdfnya":"pdf","pptnya":"pptx","ppt":"pptx","pptxnya":"pptx","xlxs":"xlsx","xslx":"xlsx","excell":"excel","excelnya":"excel","dok":"docx","docxnya":"docx","power point":"powerpoint","treding":"trading","tredding":"trading","tau":"tahu","cariin":"cari","carikan":"cari","gitu2":"begitu-begitu"};
   Object.keys(map).sort((a,b)=>b.length-a.length).forEach(k=>{q=q.replace(new RegExp("(^|\\s)"+k.replace(/[.*+?^${}()|[\\]\\]/g,"\\$&")+"(?=\\s|$)","g"),"$1"+map[k]);});
-  const fmt=/\bpdf\b/.test(q)?"pdf":/\b(pptx|powerpoint|presentasi|slide)\b/.test(q)?"pptx":/\b(docx|word)\b/.test(q)?"docx":/\b(xlsx|excel|spreadsheet)\b/.test(q)?"xlsx":"";
-  const ref=/\b(yang tadi|tadi|sebelumnya|kemarin|di atas|analisa tadi|analisis tadi)\b/.test(q);
-  const create=/\b(buat|bikin|jadikan|convert|konversi|generate|siapkan|susun|export|ekspor|download|unduh)\b/.test(q) || /^(pdf|pptx|docx|xlsx|file pdf|file pptx|file docx|file xlsx)\b/.test(q) || (!!fmt && /\bdong\b/.test(q));
-  if(fmt&&create)return {success:true,core_version:"local-fallback",normalized_input:q.replace(/\s+/g," ").trim(),intent:"CREATE_FILE",format:fmt,context_policy:ref?"ALLOW_PREVIOUS_RELEVANT":"BLOCK",memory_policy:ref?"RELEVANT_ONLY":"BLOCK",backend_target:"MAIN_CREATION",safe_to_forward:true};
-  if(/\b(cari|carikan|coba cari|search|telusuri|cek di web|di internet|berita terbaru|latest|terbaru)\b/.test(q))return {success:true,core_version:"local-fallback",normalized_input:q,intent:"WEB_SEARCH",format:"",context_policy:"ALLOW_RELEVANT",memory_policy:"RELEVANT_ONLY",backend_target:"MAIN_CHAT",safe_to_forward:true};
-  return {success:true,core_version:"local-fallback",normalized_input:q||raw,intent:"CHAT",format:"",context_policy:"ALLOW_RELEVANT",memory_policy:"RELEVANT_ONLY",backend_target:"MAIN_CHAT",safe_to_forward:true};
+  q=q.replace(/\s+/g," ").trim();
+  const fmt=/\b(pdf)\b/.test(q)?"pdf":/\b(pptx|powerpoint|presentasi|slide|slides)\b/.test(q)?"pptx":/\b(docx|word|dokumen word)\b/.test(q)?"docx":/\b(xlsx|excel|spreadsheet|lembar kerja)\b/.test(q)?"xlsx":"";
+  const ref=/\b(yang tadi|tadi|sebelumnya|kemarin|barusan|di atas|analisa tadi|analisis tadi|lanjutin|lanjutkan|ingat|kamu ingat|ingat ga|ingat nggak)\b/.test(q);
+  const create=/\b(buat|bikin|jadikan|convert|konversi|generate|siapkan|susun|export|ekspor|unduh|download)\b/.test(q) || /^(pdf|pptx|docx|xlsx|file pdf|file pptx|file docx|file xlsx|excel|presentasi|word)\b/.test(q) || (!!fmt && /\b(dong|nya|aja|nih|deh)\b/.test(q));
+  if(fmt&&create)return {success:true,core_version:"local-fallback-v2",normalized_input:q,intent:"CREATE_FILE",format:fmt,context_policy:ref?"ALLOW_PREVIOUS_RELEVANT":"BLOCK",memory_policy:ref?"RELEVANT_ONLY":"BLOCK",backend_target:"MAIN_CREATION",safe_to_forward:true};
+  if(/\b(cari|coba cari|search|telusuri|cek di web|di internet|berita|terbaru|terkini|hari ini|harga|review|alamat|website|cuaca|kurs)\b/.test(q) || (/^apa itu\b/.test(q) && q.split(/\s+/).length>=3)) return {success:true,core_version:"local-fallback-v2",normalized_input:q,intent:"WEB_SEARCH",format:"",context_policy:"ALLOW_RELEVANT",memory_policy:"RELEVANT_ONLY",backend_target:"MAIN_CHAT",safe_to_forward:true};
+  return {success:true,core_version:"local-fallback-v2",normalized_input:q||raw,intent:"CHAT",format:"",context_policy:ref?"ALLOW_PREVIOUS_RELEVANT":"BLOCK",memory_policy:ref?"RELEVANT_ONLY":"BLOCK",backend_target:"MAIN_CHAT",safe_to_forward:true};
 }
 function askZora(question,history,attachments=[],attachmentOnly=false,route=null){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId=getZoyaUserId();if(!currentUserId){reject(new Error("Silakan login dengan Google terlebih dahulu."));return;}const p=new URLSearchParams({q:String(question),history:JSON.stringify(prepareHistory(history)),attachments:JSON.stringify(attachments||[]),attachment_only:attachmentOnly?"1":"0",user_id:currentUserId,callback:cb,_:Date.now()});if(route&&route.intent){p.set("zoya_core","1");p.set("zoya_intent",String(route.intent));p.set("zoya_format",String(route.format||""));p.set("zoya_normalized_input",String(route.normalized_input||question));p.set("context_policy",String(route.context_policy||""));p.set("memory_policy",String(route.memory_policy||""));}script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},REQUEST_TIMEOUT)})}
 async function askZoraWithRetry(q,h,attachments=[],attachmentOnly=false,route=null){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments,attachmentOnly,route);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await new Promise(resolve=>setTimeout(resolve,800))}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
@@ -965,8 +969,36 @@ async function sendMessage(){
   loading.textContent="ZOYA sedang memproses"; loading.style.display="block";
   let creationMode=false;
   try{
+    // =========================================================
+    // HIGH-CONFIDENCE CREATION GATE
+    // =========================================================
+    // Jangan menunggu Semantic Router untuk request pembuatan file
+    // yang sudah jelas. Jika user menulis "buatkan ... excel/pdf/pptx/docx",
+    // langsung jalankan Creation Engine. Ini mencegah request creation
+    // salah diklasifikasikan sebagai CHAT dan kehilangan instruksi.
+    const localCreation=localSemanticFallback(finalQuestion,attachments);
+    if(localCreation &&
+       localCreation.success===true &&
+       localCreation.intent==="CREATE_FILE" &&
+       ["pdf","pptx","docx","xlsx"].includes(String(localCreation.format||"").toLowerCase())){
+      creationMode=true;
+      console.log("[ZOYA CREATION GATE]", {
+        intent: localCreation.intent,
+        format: localCreation.format,
+        normalized_input: localCreation.normalized_input
+      });
+      const creationInstruction=String(localCreation.normalized_input||finalQuestion).trim()||finalQuestion;
+      const result=await runCreationEngine(creationInstruction,attachments);
+      validateCreationResult(result);
+      conversationHistory.push({role:"user",text:finalQuestion});
+      saveMemory();
+      addCreationResult(result);
+      return;
+    }
+
+    // Request non-creation tetap melewati Semantic Router.
     let route=await semanticRoute(finalQuestion);
-    if(!route)route=localSemanticFallback(finalQuestion,attachments);
+    if(!route)route=localCreation;
     if(!route||route.success!==true)throw new Error("Semantic Router tidak memberikan keputusan.");
     const routedQuestion=String(route.normalized_input||finalQuestion).trim()||finalQuestion;
     const isCreate=semanticCreationDecision(finalQuestion,attachments,route);
