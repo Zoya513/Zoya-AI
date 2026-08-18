@@ -1041,7 +1041,7 @@ async function sendMessage(){
     const a=String(r.answer||"").trim();
     if(!a)throw new Error("ZORA mengembalikan jawaban kosong.");
     conversationHistory.push({role:"user",text:finalQuestion},{role:"assistant",text:a});
-    lastSubstantiveAssistantText=a;
+    if(isUsefulContextAnswer_(a)) lastSubstantiveAssistantText=a;
     saveMemory();
     addMessage(a,"ai");
   }catch(e){
@@ -1190,6 +1190,14 @@ function isCreationConfirmationText(text){
   if(!s)return true;
   return /^(file\s+.*\s+berhasil\s+dibuat\.?|file\s+berhasil\s+dibuat\.?|.*creation engine.*|.*tidak memiliki fitur.*menghasilkan.*xlsx.*)$/.test(s);
 }
+function isUsefulContextAnswer_(text){
+  const s=String(text||"").trim().replace(/\s+/g," ");
+  if(!s || isCreationConfirmationText(s)) return false;
+  // Jangan jadikan balasan sosial/generic sebagai "materi terakhir".
+  if(s.length < 120 && /^(halo|hai|hallo|oke|ok|iya|ya|siap|sama-sama|tidak apa-apa|tidak masalah|ada yang bisa saya bantu|silakan|tentu|baik)[.!?\s]/i.test(s)) return false;
+  if(/^(tidak apa-apa|nggak apa-apa|tidak masalah)\b[\s\S]{0,180}\b(ada yang bisa saya bantu|silakan)/i.test(s)) return false;
+  return s.length >= 80;
+}
 function compactCreationContext(text){
   const s=String(text||"").replace(/\r/g,"").trim();
   if(!s)return "";
@@ -1236,41 +1244,72 @@ function findBestCreationContext(instruction,attachments){
   const wantsConversation=/\b(percakapan|conversation|chat|riwayat|history|obrolan)\b/i.test(q);
   const explicit=hasExplicitContextReference_(q);
 
-  // Ambil jawaban substantif terakhir dari state aktif atau history lokal.
-  // Ini mencegah context hilang bila state lastSubstantiveAssistantText reset.
+  // Untuk "yang tadi/yang barusan/sebelumnya jadikan PDF/Word/dll",
+  // jangan memakai balasan sosial terakhir sebagai sumber. Cari jawaban
+  // substantif terakhir dari history aktif.
   let latest="";
-  if(lastSubstantiveAssistantText&&!isCreationConfirmationText(lastSubstantiveAssistantText)){
-    latest=String(lastSubstantiveAssistantText);
-  }else if(Array.isArray(conversationHistory)){
+  let latestUser="";
+  if(Array.isArray(conversationHistory)){
     for(let i=conversationHistory.length-1;i>=0;i--){
       const x=conversationHistory[i];
-      if(x&&x.role==="assistant"&&x.text&&!isCreationConfirmationText(x.text)){
-        latest=String(x.text);
-        break;
+      if(!x || x.role!=="assistant" || !x.text) continue;
+      if(!isUsefulContextAnswer_(x.text)) continue;
+
+      // Ambil pasangan user terdekat untuk mengetahui topik sumber.
+      let prevUser="";
+      for(let j=i-1;j>=0;j--){
+        if(conversationHistory[j] && conversationHistory[j].role==="user"){
+          prevUser=String(conversationHistory[j].text||"");
+          break;
+        }
       }
+      latest=String(x.text);
+      latestUser=prevUser;
+      break;
     }
   }
+
+  if(!latest && lastSubstantiveAssistantText && isUsefulContextAnswer_(lastSubstantiveAssistantText)){
+    latest=String(lastSubstantiveAssistantText);
+  }
+
   const latestScore=contextRelevanceScore_(q,latest);
 
+  // Referensi eksplisit adalah instruksi kuat. Gunakan jawaban substantif
+  // terakhir, bukan memaksa keyword overlap pada frasa seperti "yang tadi".
   if(explicit && latest){
-    return {text:compactCreationContext(latest),sourceType:"explicit_latest_analysis",score:1};
+    return {
+      text:compactCreationContext(latest),
+      sourceType:"explicit_latest_substantive_answer",
+      score:1,
+      sourceUser:latestUser
+    };
   }
 
   if(wantsConversation){
     const recent=[];
-    for(let i=Math.max(0,conversationHistory.length-6);i<conversationHistory.length;i++){
+    for(let i=Math.max(0,conversationHistory.length-8);i<conversationHistory.length;i++){
       const x=conversationHistory[i];
-      if(!x||!x.text)continue;
-      if(x.role==="assistant" && isCreationConfirmationText(x.text))continue;
-      recent.push((x.role==="user"?"[USER] ":"[ZOYA] ")+String(x.text));
+      if(!x||!x.text||!isUsefulContextAnswer_(x.text)) continue;
+      recent.push(String(x.text));
     }
-    return {text:recent.length?compactCreationContext(recent.join("\n\n")):"",sourceType:"conversation_requested",score:1};
+    if(recent.length){
+      return {
+        text:compactCreationContext(recent.join("\\n\\n")),
+        sourceType:"recent_substantive_conversation",
+        score:1
+      };
+    }
   }
 
-  // Relevansi harus cukup tinggi. Satu keyword umum tidak cukup untuk
-  // menjadikan percakapan lama sebagai sumber utama.
+  // Untuk referensi implisit, gunakan jawaban terakhir hanya bila cukup relevan.
   if(latest && latestScore>=0.45){
-    return {text:compactCreationContext(latest),sourceType:"relevant_latest_context",score:latestScore};
+    return {
+      text:compactCreationContext(latest),
+      sourceType:"relevant_latest_context",
+      score:latestScore,
+      sourceUser:latestUser
+    };
   }
 
   return {text:"",sourceType:"new_creation",score:0};
