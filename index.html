@@ -115,6 +115,7 @@
 }
 .zoya-user:hover{background:#f3f3f3}
 .zoya-user.auth-pending{display:flex;background:#f1f1f1;pointer-events:none}.zoya-user.auth-pending img{opacity:.35}
+.zoya-booting #composer{pointer-events:none;opacity:.72}.zoya-booting #question,.zoya-booting #send,.zoya-booting #mic,.zoya-booting #uploadButton{pointer-events:none}.zoya-boot-status{position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:11px;color:#888;white-space:nowrap;display:none}.zoya-user.auth-pending + .zoya-boot-status{display:block}
 .zoya-user:hover { background:#f3f3f3; }
 .zoya-user img {
     width: 30px;
@@ -210,6 +211,7 @@
   <button type="button" class="zoya-user" id="zoyaUser" onclick="logoutZoya()" title="Akun Google">
     <img id="zoyaUserPicture" alt="Foto profil" referrerpolicy="no-referrer">
   </button>
+  <span class="zoya-boot-status" id="zoyaBootStatus">Menyiapkan akun...</span>
 </div></div>
 <div class="chat" id="chat"><div class="welcome" id="welcome"><div class="welcome-logo"></div><h1>Apa yang bisa saya bantu?</h1><p>Tanyakan sesuatu kepada ZOYA AI</p></div></div>
 <div class="loading" id="loading">ZOYA sedang berpikir <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
@@ -362,6 +364,50 @@ function clearZoyaAuthError() {
 }
 
 
+
+function setZoyaBootStatus(text,show=true){
+    const el=document.getElementById("zoyaBootStatus");
+    if(el){el.textContent=String(text||"Menyiapkan akun...");el.style.display=show?"block":"none";}
+}
+function setZoyaBooting(booting,text){
+    document.body.classList.toggle("zoya-booting",!!booting);
+    if(booting){setZoyaInteractionReady(false);setZoyaBootStatus(text||"Menyiapkan akun...",true);}
+    else setZoyaBootStatus("",false);
+}
+function waitForZoyaProfileReady(session){
+    return new Promise(resolve=>{
+        const picture=String(session&&session.user&&session.user.picture||"").trim();
+        if(!picture){setTimeout(resolve,250);return;}
+        const img=new Image();
+        let finished=false;
+        const finish=()=>{if(finished)return;finished=true;clearTimeout(timer);resolve();};
+        img.onload=finish;
+        img.onerror=finish;
+        const timer=setTimeout(finish,1200);
+        img.referrerPolicy="no-referrer";
+        img.src=picture;
+    });
+}
+async function finalizeZoyaBoot(session){
+    setZoyaBooting(true,"Menyiapkan akun...");
+    try{
+        if(session&&session.user&&zoyaUserPicture&&session.user.picture){
+            zoyaUserPicture.src=session.user.picture;
+        }
+        await waitForZoyaProfileReady(session);
+        try{loadMemory();}catch(e){}
+        try{setupVoiceInput();}catch(e){}
+        updateZoyaAuthUI();
+        zoyaAuthPending=false;
+        setZoyaBooting(false);
+        setZoyaInteractionReady(true);
+    }catch(e){
+        console.error("ZOYA BOOT ERROR:",e);
+        setZoyaBooting(false);
+        setZoyaInteractionReady(true);
+    }
+}
+
 function updateZoyaAuthUI() {
 
     if (!zoyaSession || !zoyaSession.user) {
@@ -390,8 +436,7 @@ function updateZoyaAuthUI() {
             "none";
     }
 
-    setZoyaInteractionReady(true);
-
+    // Interaction readiness is controlled by finalizeZoyaBoot().
     if (zoyaLoginButton) {
         zoyaLoginButton.style.display =
             "none";
@@ -665,6 +710,7 @@ async function handleZoyaGoogleCredential(
 
     clearZoyaAuthError();
 
+    setZoyaBooting(true,"Memverifikasi akun...");
     if (zoyaAuthOverlay) {
         zoyaAuthOverlay.style.display = "none";
     }
@@ -706,11 +752,9 @@ async function handleZoyaGoogleCredential(
             zoyaUser.classList.remove("auth-pending");
         }
 
-        updateZoyaAuthUI();
         conversationHistory=[];
         lastSubstantiveAssistantText="";
-        loadMemory();
-        setupVoiceInput();
+        await finalizeZoyaBoot(zoyaSession);
 
         console.log(
             "ZOYA LOGIN BERHASIL:",
@@ -815,7 +859,7 @@ function getZoyaAuthToken() {
 
 
 
-const MEMORY_KEY="ZORA_AI_MEMORY_V11",MAX_HISTORY_MESSAGES=8,MAX_HISTORY_CHARS=1200,MAX_RETRIES=3,REQUEST_TIMEOUT=45000;
+const MEMORY_KEY="ZORA_AI_MEMORY_V11",MAX_HISTORY_MESSAGES=8,MAX_HISTORY_CHARS=1200,MAX_RETRIES=2,REQUEST_TIMEOUT=30000;
 let conversationHistory=[],lastSubstantiveAssistantText="",isSending=false,recognition=null,isListening=false,voiceBaseText="",voiceCommittedText="",voiceInterimText="";
 const $=id=>document.getElementById(id),questionInput=$("question"),chat=$("chat"),loading=$("loading"),sendButton=$("send"),welcome=$("welcome"),retryStatus=$("retryStatus"),micButton=$("mic"),voiceStatus=$("voiceStatus"),voicePermission=$("voicePermission"),voicePermissionButton=$("voicePermissionButton"),voicePermissionText=$("voicePermissionText"),uploadButton=$("uploadButton"),attachWrap=$("attachWrap"),attachMenu=$("attachMenu"),attachImage=$("attachImage"),attachCamera=$("attachCamera"),attachFile=$("attachFile"),attachVoice=$("attachVoice"),documentInput=$("documentInput"),imageInput=$("imageInput"),cameraInput=$("cameraInput"),uploadAttachments=$("uploadAttachments");
 function userMemoryKey(){const uid=getZoyaUserId();return uid?MEMORY_KEY+"_"+uid:MEMORY_KEY+"_ANONYMOUS"}
@@ -841,7 +885,7 @@ function semanticRoute(input){
     const cb="zoraCoreCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2,10);
     const script=document.createElement("script");
     let done=false;
-    const timeout=setTimeout(()=>finish(local),3000);
+    const timeout=setTimeout(()=>finish(local),1200);
     function cleanup(){clearTimeout(timeout);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}
     function finish(data){if(done)return;done=true;cleanup();resolve(data&&data.success===true?data:local)}
     window[cb]=finish;
@@ -876,7 +920,7 @@ function localSemanticFallback(text,attachments){
   return {success:true,core_version:"local-fallback",normalized_input:q||raw,intent:"CHAT",format:"",context_policy:"ALLOW_RELEVANT",memory_policy:"RELEVANT_ONLY",backend_target:"MAIN_CHAT",safe_to_forward:true};
 }
 function askZora(question,history,attachments=[],attachmentOnly=false,route=null){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId=getZoyaUserId();if(!currentUserId){reject(new Error("Silakan login dengan Google terlebih dahulu."));return;}const p=new URLSearchParams({q:String(question),history:JSON.stringify(prepareHistory(history)),attachments:JSON.stringify(attachments||[]),attachment_only:attachmentOnly?"1":"0",user_id:currentUserId,callback:cb,_:Date.now()});if(route&&route.intent){p.set("zoya_core","1");p.set("zoya_intent",String(route.intent));p.set("zoya_format",String(route.format||""));p.set("zoya_normalized_input",String(route.normalized_input||question));p.set("context_policy",String(route.context_policy||""));p.set("memory_policy",String(route.memory_policy||""));}script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},REQUEST_TIMEOUT)})}
-async function askZoraWithRetry(q,h,attachments=[],attachmentOnly=false,route=null){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments,attachmentOnly,route);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await wait(i*1500)}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
+async function askZoraWithRetry(q,h,attachments=[],attachmentOnly=false,route=null){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments,attachmentOnly,route);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await wait(800)}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
 function addUserMessageWithAttachments(text,attachments){
   const m=document.createElement("div");m.className="message user";
   const wrap=document.createElement("div");wrap.className="bubble";wrap.textContent=text;
@@ -900,7 +944,7 @@ async function sendMessage(){
   clearPendingAttachments();
   questionInput.value="";
   autoResizeTextarea();
-  loading.style.display="block";
+  loading.textContent="ZOYA sedang memproses"; loading.style.display="block";
   let creationMode=false;
   try{
     let route=await semanticRoute(finalQuestion);
@@ -932,6 +976,7 @@ async function sendMessage(){
   }catch(e){
     addMessage(creationMode?creationErrorMessage(e):"ZORA belum menerima respons dari server.\n\n"+(e.message||e),"ai");
   }finally{
+    loading.innerHTML='ZOYA sedang berpikir <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>';
     loading.style.display="none";
     retryStatus.style.display="none";
     isSending=false;
@@ -1608,13 +1653,12 @@ questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key===
 ========================================================= */
 (function startZoyaAuthentication(){
   zoyaSession=loadZoyaSession();
-  setZoyaInteractionReady(!!(zoyaSession&&zoyaSession.user));
+  setZoyaInteractionReady(false);
+  setZoyaBooting(!!zoyaSession,"Menyiapkan akun...");
   updateZoyaAuthUI();
 
   if(zoyaSession){
-    setZoyaInteractionReady(true);
-    try{loadMemory()}catch(e){}
-    try{setupVoiceInput()}catch(e){}
+    finalizeZoyaBoot(zoyaSession);
 
     // Jangan menunggu Google SDK untuk menampilkan app yang sudah login.
     const bootGoogle=()=>{
