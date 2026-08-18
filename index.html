@@ -950,6 +950,13 @@ function addUserMessageWithAttachments(text,attachments){
   m.appendChild(wrap);chat.appendChild(m);requestAnimationFrame(()=>chat.scrollTop=chat.scrollHeight);
 }
 
+function getInstantLocalReply_(text){
+  const q=String(text||"").trim().toLowerCase().replace(/[!?.,]+$/g,"");
+  if(/^(halo|hallo|haloo|hai|hi|hey)$/.test(q)) return "Halo! Saya ZOYA AI. Ada yang bisa saya bantu?";
+  if(/^(oke|ok|iya|ya|sip|siap|makasih|terima kasih)$/.test(q)) return "Siap.";
+  return "";
+}
+
 async function sendMessage(){
   if(!zoyaAuthReady){return;}
   if(isSending||isUploading||uploadQueue.some(x=>x.status==="queued"))return;
@@ -966,6 +973,20 @@ async function sendMessage(){
   clearPendingAttachments();
   questionInput.value="";
   autoResizeTextarea();
+
+  const instantReply=getInstantLocalReply_(finalQuestion);
+  if(instantReply && !attachments.length){
+    conversationHistory.push({role:"user",text:finalQuestion},{role:"assistant",text:instantReply});
+    lastSubstantiveAssistantText=instantReply;
+    saveMemory();
+    addMessage(instantReply,"ai");
+    isSending=false;
+    sendButton.disabled=micButton.disabled=uploadButton.disabled=false;
+    refreshSendState();
+    questionInput.focus();
+    return;
+  }
+
   loading.textContent="ZOYA sedang memproses"; loading.style.display="block";
   let creationMode=false;
   try{
@@ -988,7 +1009,7 @@ async function sendMessage(){
         normalized_input: localCreation.normalized_input
       });
       const creationInstruction=String(localCreation.normalized_input||finalQuestion).trim()||finalQuestion;
-      const result=await runCreationEngine(creationInstruction,attachments);
+      const result=await runCreationEngine(creationInstruction,attachments,localCreation);
       validateCreationResult(result);
       conversationHistory.push({role:"user",text:finalQuestion});
       saveMemory();
@@ -1006,7 +1027,7 @@ async function sendMessage(){
     const h=attachmentOnly||blocked?[]:prepareHistory(conversationHistory);
     if(isCreate){
       creationMode=true;
-      const result=await runCreationEngine(applySemanticRouteToCreation(finalQuestion,route),attachments);
+      const result=await runCreationEngine(applySemanticRouteToCreation(finalQuestion,route),attachments,route);
       validateCreationResult(result);
       conversationHistory.push({role:"user",text:finalQuestion});
       saveMemory();
@@ -1215,15 +1236,24 @@ function findBestCreationContext(instruction,attachments){
   const wantsConversation=/\b(percakapan|conversation|chat|riwayat|history|obrolan)\b/i.test(q);
   const explicit=hasExplicitContextReference_(q);
 
-  // CRITICAL: konteks lama hanya boleh dipakai jika pengguna secara eksplisit
-  // merujuknya atau jika topiknya sangat relevan. Jangan pernah memasukkan
-  // jawaban terakhir hanya karena kebetulan tersedia.
-  const latest=(lastSubstantiveAssistantText&&!isCreationConfirmationText(lastSubstantiveAssistantText))
-    ? String(lastSubstantiveAssistantText) : "";
+  // Ambil jawaban substantif terakhir dari state aktif atau history lokal.
+  // Ini mencegah context hilang bila state lastSubstantiveAssistantText reset.
+  let latest="";
+  if(lastSubstantiveAssistantText&&!isCreationConfirmationText(lastSubstantiveAssistantText)){
+    latest=String(lastSubstantiveAssistantText);
+  }else if(Array.isArray(conversationHistory)){
+    for(let i=conversationHistory.length-1;i>=0;i--){
+      const x=conversationHistory[i];
+      if(x&&x.role==="assistant"&&x.text&&!isCreationConfirmationText(x.text)){
+        latest=String(x.text);
+        break;
+      }
+    }
+  }
   const latestScore=contextRelevanceScore_(q,latest);
 
   if(explicit && latest){
-    return {text:compactCreationContext(latest),sourceType:"explicit_latest_analysis",score:latestScore};
+    return {text:compactCreationContext(latest),sourceType:"explicit_latest_analysis",score:1};
   }
 
   if(wantsConversation){
@@ -1245,13 +1275,15 @@ function findBestCreationContext(instruction,attachments){
 
   return {text:"",sourceType:"new_creation",score:0};
 }
-async function runCreationEngine(instruction,attachments){
+async function runCreationEngine(instruction,attachments,route=null){
   const currentUserId=getZoyaUserId();
   if(!currentUserId)throw new Error("Silakan login dengan Google terlebih dahulu.");
   const format=detectCreationFormat(instruction,attachments);
   if(!format)throw new Error("Format file tidak dapat ditentukan.");
   const edit=isEditRequest(instruction,attachments);
   const source=findBestCreationContext(instruction,attachments);
+  const contextPolicy=String((route&&route.context_policy)||"").toUpperCase();
+  const memoryPolicy=String((route&&route.memory_policy)||"").toUpperCase();
   const params={
     format:format,
     instruction:String(instruction),
@@ -1260,7 +1292,13 @@ async function runCreationEngine(instruction,attachments){
     source_context:source.text,
     source_type:source.sourceType,
     context_explicit:(hasExplicitContextReference_(instruction)?"1":"0"),
-    context_score:String(Number(source.score||0).toFixed(3))
+    context_score:String(Number(source.score||0).toFixed(3)),
+    zoya_core:"1",
+    zoya_intent:"CREATE_FILE",
+    zoya_format:format,
+    zoya_normalized_input:String((route&&route.normalized_input)||instruction),
+    zoya_context_policy:contextPolicy || (hasExplicitContextReference_(instruction)?"ALLOW_PREVIOUS_RELEVANT":"BLOCK"),
+    zoya_memory_policy:memoryPolicy || (hasExplicitContextReference_(instruction)?"RELEVANT_ONLY":"BLOCK")
   };
 
   // PENTING: attachment harus diteruskan untuk CREATE maupun EDIT.
