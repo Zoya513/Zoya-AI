@@ -905,7 +905,25 @@ function applySemanticRouteToCreation(text,route){
   return normalized;
 }
 function semanticCreationDecision(text,attachments,route){
-  if(route) return route.success===true && route.intent==="CREATE_FILE" && ["pdf","pptx","docx","xlsx"].includes(String(route.format||"").toLowerCase());
+  // Core Router tetap menjadi sumber utama, tetapi frontend tidak boleh
+  // membuang request creation yang sangat jelas hanya karena Core Router
+  // salah mengklasifikasikannya sebagai CHAT.
+  if(route && route.success===true &&
+     route.intent==="CREATE_FILE" &&
+     ["pdf","pptx","docx","xlsx"].includes(String(route.format||"").toLowerCase())){
+    return true;
+  }
+
+  // Server/backend tidak bisa memperbaiki keputusan ini setelah frontend
+  // sudah memilih jalur CHAT. Karena itu lakukan high-confidence fallback
+  // lokal sebelum memanggil askZora().
+  const local=localSemanticFallback(text,attachments);
+  if(local && local.success===true &&
+     local.intent==="CREATE_FILE" &&
+     ["pdf","pptx","docx","xlsx"].includes(String(local.format||"").toLowerCase())){
+    return true;
+  }
+
   return isCreationRequest(text,attachments);
 }
 function localSemanticFallback(text,attachments){
