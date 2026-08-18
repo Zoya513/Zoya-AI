@@ -253,6 +253,8 @@ const ZOYA_AUTH_STORAGE_KEY =
 "ZOYA_GOOGLE_SESSION_V1";
 
 let zoyaSession = null;
+let zoyaAuthReady = false;
+let zoyaAuthPending = false;
 
 
 /* =========================================================
@@ -317,6 +319,17 @@ function clearZoyaSession() {
     try { sessionStorage.removeItem(ZOYA_AUTH_STORAGE_KEY); } catch (_) {}
 }
 
+function setZoyaInteractionReady(ready) {
+    zoyaAuthReady = !!ready;
+    const disabled = !zoyaAuthReady;
+    if (questionInput) questionInput.disabled = disabled;
+    if (sendButton) sendButton.disabled = disabled;
+    if (micButton) micButton.disabled = disabled;
+    if (uploadButton) uploadButton.disabled = disabled;
+    if (!disabled && questionInput) questionInput.focus();
+}
+
+
 /* =========================================================
    AUTH UI
 ========================================================= */
@@ -352,6 +365,7 @@ function clearZoyaAuthError() {
 function updateZoyaAuthUI() {
 
     if (!zoyaSession || !zoyaSession.user) {
+        setZoyaInteractionReady(false);
 
         if (zoyaAuthOverlay) {
             zoyaAuthOverlay.style.display =
@@ -375,6 +389,8 @@ function updateZoyaAuthUI() {
         zoyaAuthOverlay.style.display =
             "none";
     }
+
+    setZoyaInteractionReady(true);
 
     if (zoyaLoginButton) {
         zoyaLoginButton.style.display =
@@ -449,6 +465,8 @@ function initializeZoyaGoogleLogin() {
 function openZoyaGoogleLogin() {
 
     clearZoyaAuthError();
+    zoyaAuthPending = true;
+    setZoyaInteractionReady(false);
 
     if (zoyaAuthOverlay) {
         zoyaAuthOverlay.style.display =
@@ -682,6 +700,7 @@ async function handleZoyaGoogleCredential(
             result;
         // Simpan segera di dua storage sebelum UI/riwayat lain diproses.
         saveZoyaSession(zoyaSession);
+        zoyaAuthPending = false;
 
         if (zoyaUser) {
             zoyaUser.classList.remove("auth-pending");
@@ -699,6 +718,8 @@ async function handleZoyaGoogleCredential(
         );
 
     } catch (error) {
+        zoyaAuthPending = false;
+        setZoyaInteractionReady(false);
 
         console.error(
             "ZOYA GOOGLE LOGIN ERROR:",
@@ -736,6 +757,8 @@ function logoutZoya() {
 
     zoyaSession =
         null;
+    zoyaAuthPending = false;
+    setZoyaInteractionReady(false);
 
     if (
         window.google &&
@@ -806,14 +829,23 @@ function semanticRoute(input){
   return new Promise((resolve)=>{
     const text=String(input||"").trim();
     if(!text){resolve(null);return;}
+
+    // Fast path: obvious intents do not need an extra network round-trip.
+    // This removes the artificial 8s delay for common chat/file commands.
+    const local=localSemanticFallback(text,[]);
+    const lower=text.toLowerCase().trim();
+    const obviousChat=/^(halo|haloo|hai|hallo|hi|hey|pagi|siang|sore|malam|test|tes|ok|oke|okei|thanks|makasih|terima kasih)[!.?, ]*$/i.test(lower);
+    const obviousCreate=/\b(pdf|pfd|ppt|pptx|pptnya|pfdnya|docx|word|xlsx|excel|file pdf|file pptx|file docx|file xlsx)\b/i.test(lower) && /\b(buat|bikin|bkin|bwt|jadikan|jadiin|buatkan|generate|export|dong|nya)\b/i.test(lower);
+    if(obviousChat || obviousCreate){ resolve(local); return; }
+
     const cb="zoraCoreCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2,10);
     const script=document.createElement("script");
     let done=false;
-    const timeout=setTimeout(()=>finish(null),8000);
+    const timeout=setTimeout(()=>finish(local),3000);
     function cleanup(){clearTimeout(timeout);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}
-    function finish(data){if(done)return;done=true;cleanup();resolve(data&&data.success===true?data:null)}
+    function finish(data){if(done)return;done=true;cleanup();resolve(data&&data.success===true?data:local)}
     window[cb]=finish;
-    script.onerror=()=>finish(null);
+    script.onerror=()=>finish(local);
     const p=new URLSearchParams({q:text,callback:cb,_:Date.now()});
     script.src=CORE_ROUTER_URL+"?"+p.toString();
     script.async=true;
@@ -853,6 +885,7 @@ function addUserMessageWithAttachments(text,attachments){
 }
 
 async function sendMessage(){
+  if(!zoyaAuthReady){return;}
   if(isSending||isUploading||uploadQueue.some(x=>x.status==="queued"))return;
   const q=questionInput.value.trim();
   const attachments=attachmentMetadata();
@@ -1575,9 +1608,11 @@ questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key===
 ========================================================= */
 (function startZoyaAuthentication(){
   zoyaSession=loadZoyaSession();
+  setZoyaInteractionReady(!!(zoyaSession&&zoyaSession.user));
   updateZoyaAuthUI();
 
   if(zoyaSession){
+    setZoyaInteractionReady(true);
     try{loadMemory()}catch(e){}
     try{setupVoiceInput()}catch(e){}
 
