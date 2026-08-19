@@ -256,6 +256,82 @@ const BACKEND_URL="https://script.google.com/macros/s/AKfycbw33TXwySs86gmsMloKyX
 const CORE_ROUTER_URL="https://script.google.com/macros/s/AKfycbzSghjKvym8UO-JEqoFjTHuFFQej8mRbnW_VzneppNWb6GJDquZlcHfqufNTJudP-EhaA/exec";
 // Backend Agent baru — opsional. Isi dengan URL Web App Agent setelah deploy.
 const AGENT_BACKEND_URL="https://script.google.com/macros/s/AKfycbznX3ZesRcsJdc8p1j4BUIveMHvV5iqwN6M802IzmyyPXYMHut4asQKwzQm7Vxr_wnY/exec";
+// BACKEND 2 — INTELLIGENCE
+// Deploy ZOYA_INTELLIGENCE_BACKEND.gs sebagai Web App terpisah,
+// lalu tempel URL /exec hasil deployment di sini.
+const INTELLIGENCE_BACKEND_URL="https://script.google.com/macros/s/AKfycbwXjOmYJJx3WkXNEG30U10soyXzpjM1Db2gkulZE-5-40Wamronvx5i-f_dvyGZtC95/exec";
+const ZOYA_INTELLIGENCE_ENABLED=!!INTELLIGENCE_BACKEND_URL&&!INTELLIGENCE_BACKEND_URL.includes("PASTE_INTELLIGENCE_BACKEND_URL_HERE");
+let zoyaIntelligenceProfile=null,zoyaIntelligencePreferences=null,zoyaIntelligenceMemory=[],lastInputWasVoice=false;
+
+
+/* =========================================================
+   BACKEND 2 — INTELLIGENCE CLIENT
+========================================================= */
+function intelligenceCallbackName(){return"zoyaIntelligence_"+Date.now()+"_"+Math.random().toString(36).slice(2,10)}
+function hasIntelligenceBackend(){return ZOYA_INTELLIGENCE_ENABLED}
+function intelligenceJsonpRequest(action,params,timeoutMs){
+  return new Promise(function(resolve,reject){
+    if(!hasIntelligenceBackend()){reject(new Error("Backend Intelligence belum dikonfigurasi."));return}
+    const userId=getZoyaUserId();
+    if(!userId){reject(new Error("Silakan login dengan Google terlebih dahulu."));return}
+    const cb=intelligenceCallbackName(),script=document.createElement("script");let done=false,timer=null;
+    function cleanup(){if(timer)clearTimeout(timer);if(script.parentNode)script.parentNode.removeChild(script);try{delete window[cb]}catch(e){window[cb]=undefined}}
+    window[cb]=function(data){if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend Intelligence tidak memberikan respons."));return}resolve(data)};
+    script.onerror=function(){if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima respons dari Backend Intelligence."))};
+    const p=new URLSearchParams(params||{});
+    p.set("action",String(action||""));p.set("user_id",userId);p.set("callback",cb);p.set("_",String(Date.now()));
+    script.src=INTELLIGENCE_BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);
+    timer=setTimeout(function(){if(done)return;done=true;cleanup();reject(new Error("Backend Intelligence terlalu lama merespons."))},Number(timeoutMs)||20000);
+  });
+}
+async function loadIntelligenceProfile(){
+  if(!hasIntelligenceBackend()||!getZoyaUserId())return;
+  try{
+    const r=await Promise.all([
+      intelligenceJsonpRequest("profile_get",{},15000),
+      intelligenceJsonpRequest("preferences_get",{},15000),
+      intelligenceJsonpRequest("memory_get",{},15000)
+    ]);
+    zoyaIntelligenceProfile=r[0].profile||null;
+    zoyaIntelligencePreferences=r[1].preferences||null;
+    zoyaIntelligenceMemory=Array.isArray(r[2].memory)?r[2].memory:[];
+    console.log("ZOYA INTELLIGENCE READY:",zoyaIntelligenceMemory.length,"memory");
+  }catch(e){console.warn("ZOYA INTELLIGENCE BOOT:",e)}
+}
+function buildIntelligenceContext(){
+  if(!hasIntelligenceBackend())return "";
+  const p=zoyaIntelligenceProfile||{},pr=zoyaIntelligencePreferences||{},m=Array.isArray(zoyaIntelligenceMemory)?zoyaIntelligenceMemory.slice(-8):[];
+  if(!p.name&&!p.language&&!p.communicationStyle&&!pr.language&&!pr.responseStyle&&!m.length)return "";
+  return "[ZOYA INTELLIGENCE CONTEXT]\n"+JSON.stringify({profile:{name:p.name||"",language:p.language||"",communicationStyle:p.communicationStyle||""},preferences:{language:pr.language||"",responseStyle:pr.responseStyle||""},memory:m});
+}
+function processVoiceWithIntelligence(text){
+  if(!hasIntelligenceBackend()||!text)return Promise.resolve(String(text||""));
+  return intelligenceJsonpRequest("voice_process",{text:String(text)},15000).then(function(r){return String(r.normalizedText||text).trim()||String(text)}).catch(function(e){console.warn("ZOYA INTELLIGENCE VOICE:",e);return String(text)});
+}
+function saveIntelligenceMemoryCandidate(text){
+  if(!hasIntelligenceBackend()||!getZoyaUserId()||!text)return;
+  intelligenceJsonpRequest("memory_extract",{text:String(text)},12000).then(function(r){
+    const c=Array.isArray(r.candidates)?r.candidates:[];if(!c.length)return;
+    const old=Array.isArray(zoyaIntelligenceMemory)?zoyaIntelligenceMemory:[];
+    const merged=old.concat(c.map(function(x){return{type:String(x.type||"memory"),text:String(x.text||""),confidence:Number(x.confidence||0),createdAt:new Date().toISOString()}})).filter(function(x){return x&&String(x.text||"").trim()}).slice(-100);
+    zoyaIntelligenceMemory=merged;return intelligenceJsonpRequest("memory_save",{memory:JSON.stringify(merged)},15000);
+  }).catch(function(e){console.warn("ZOYA INTELLIGENCE MEMORY:",e)});
+}
+function syncIntelligenceAfterTurn(userText,assistantText){
+  if(!hasIntelligenceBackend()||!getZoyaUserId())return;
+  saveIntelligenceMemoryCandidate(userText);if(assistantText)saveIntelligenceMemoryCandidate(assistantText);
+}
+function shouldUseKnowledge(query,attachments){
+  if(attachments&&attachments.length)return true;
+  return /\b(file|dokumen|document|pdf|word|excel|ppt|pptx|laporan|lampiran|upload|unggah|yang saya kirim|yang saya upload|isi file)\b/i.test(String(query||""));
+}
+function retrieveIntelligenceContext(query,attachments){
+  if(!hasIntelligenceBackend()||!shouldUseKnowledge(query,attachments))return Promise.resolve("");
+  return intelligenceJsonpRequest("knowledge_search",{query:String(query||"")},25000).then(function(r){
+    const results=Array.isArray(r.results)?r.results:[];if(!results.length)return "";
+    return "[ZOYA RAG CONTEXT]\n"+results.slice(0,8).map(function(x,i){return"SOURCE "+(i+1)+" | "+String(x.fileName||"")+" | chunk "+String(x.chunkIndex??"")+"\n"+String(x.text||"")}).join("\n\n");
+  }).catch(function(e){console.warn("ZOYA INTELLIGENCE RAG:",e);return ""});
+}
 
 /* =========================================================
    GOOGLE AUTHENTICATION — STEP 11
@@ -409,6 +485,7 @@ async function finalizeZoyaBoot(session){
         }
         await waitForZoyaProfileReady(session);
         try{loadMemory();}catch(e){}
+        try{await loadIntelligenceProfile();}catch(e){}
         try{setupVoiceInput();}catch(e){}
         updateZoyaAuthUI();
         zoyaAuthPending=false;
@@ -1160,23 +1237,38 @@ async function sendMessage(){
   if(isSending||isUploading||uploadQueue.some(x=>x.status==="queued"))return;
   // Jika Kirim ditekan saat voice aktif, hentikan recognition dulu.
   stopVoiceForSend();
-  const q=questionInput.value.trim();
+  let q=questionInput.value.trim();
   const attachments=attachmentMetadata();
   if(!q&&!attachments.length)return;
   const attachmentOnly=!q&&attachments.length>0;
-  const finalQuestion=q||(attachmentOnly?"Tolong analisis file yang saya kirim.":"");
+  let finalQuestion=q||(attachmentOnly?"Tolong analisis file yang saya kirim.":"");
   if(!finalQuestion)return;
+  let displayQuestion=finalQuestion;
   isSending=true;
+
+  if(hasIntelligenceBackend()){
+    try{
+      if(lastInputWasVoice){
+        finalQuestion=await processVoiceWithIntelligence(finalQuestion);
+        displayQuestion=finalQuestion;
+      }
+      const ragContext=await retrieveIntelligenceContext(finalQuestion,attachments);
+      const memoryContext=buildIntelligenceContext();
+      if(ragContext)finalQuestion=finalQuestion+"\n\n"+ragContext;
+      if(memoryContext)finalQuestion=finalQuestion+"\n\n"+memoryContext;
+    }catch(e){console.warn("ZOYA INTELLIGENCE PREPROCESS:",e)}
+  }
+  lastInputWasVoice=false;
   sendButton.disabled=micButton.disabled=uploadButton.disabled=true;
   if(welcome?.parentNode)welcome.remove();
-  addUserMessageWithAttachments(finalQuestion,attachments);
+  addUserMessageWithAttachments(displayQuestion,attachments);
   clearPendingAttachments();
   questionInput.value="";
   autoResizeTextarea();
 
   const instantReply=getInstantLocalReply_(finalQuestion);
   if(instantReply && !attachments.length){
-    conversationHistory.push({role:"user",text:finalQuestion},{role:"assistant",text:instantReply});
+    conversationHistory.push({role:"user",text:displayQuestion},{role:"assistant",text:instantReply});
     lastSubstantiveAssistantText=instantReply;
     saveMemory();
     addMessage(instantReply,"ai");
@@ -1202,11 +1294,12 @@ async function sendMessage(){
       const answer=String(agentResult.answer||"").trim();
       if(answer){
         conversationHistory.push(
-          {role:"user",text:finalQuestion},
+          {role:"user",text:displayQuestion},
           {role:"assistant",text:answer}
         );
         if(isUsefulContextAnswer_(answer)) lastSubstantiveAssistantText=answer;
         saveMemory();
+        syncIntelligenceAfterTurn(displayQuestion,answer);
       }
 
       showAgentResult_(agentResult);
@@ -1246,7 +1339,7 @@ async function sendMessage(){
       const creationInstruction=String(localCreation.normalized_input||finalQuestion).trim()||finalQuestion;
       const result=await runCreationEngine(creationInstruction,attachments,localCreation);
       validateCreationResult(result);
-      conversationHistory.push({role:"user",text:finalQuestion});
+      conversationHistory.push({role:"user",text:displayQuestion});
       saveMemory();
       addCreationResult(result);
       return;
@@ -1264,7 +1357,7 @@ async function sendMessage(){
       creationMode=true;
       const result=await runCreationEngine(applySemanticRouteToCreation(finalQuestion,route),attachments,route);
       validateCreationResult(result);
-      conversationHistory.push({role:"user",text:finalQuestion});
+      conversationHistory.push({role:"user",text:displayQuestion});
       saveMemory();
       addCreationResult(result);
       return;
@@ -1275,7 +1368,7 @@ async function sendMessage(){
     const r=await askZoraWithRetry(analysisQuestion,h,attachments,attachmentOnly,route);
     const a=String(r.answer||"").trim();
     if(!a)throw new Error("ZORA mengembalikan jawaban kosong.");
-    conversationHistory.push({role:"user",text:finalQuestion},{role:"assistant",text:a});
+    conversationHistory.push({role:"user",text:displayQuestion},{role:"assistant",text:a});
     if(isUsefulContextAnswer_(a)) lastSubstantiveAssistantText=a;
     saveMemory();
     addMessage(a,"ai");
@@ -1645,7 +1738,7 @@ function setupVoiceInput(){
     finally{voicePermissionBusy=false}
   }
   voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};
-  recognition.onstart=()=>{isListening=true;voiceStopRequested=false;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};
+  recognition.onstart=()=>{isListening=true;lastInputWasVoice=true;voiceStopRequested=false;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};
   recognition.onresult=e=>{
     let finalChunk="",interimChunk="";
     for(let i=e.resultIndex;i<e.results.length;i++){const part=String(e.results[i][0]?.transcript||"").trim();if(!part)continue;if(e.results[i].isFinal)finalChunk+=(finalChunk?" ":"")+part;else interimChunk+=(interimChunk?" ":"")+part}
@@ -1704,11 +1797,13 @@ function attachmentMetadata(){return pendingAttachments.map(x=>({fileId:x.fileId
 // mengubah desain composer.
 function indexKnowledgeInBackground(fileId,fileName){
   if(!fileId)return;
-  uploadJsonp({
-    action:"knowledge_index",
+  if(!hasIntelligenceBackend()){
+    console.warn("ZOYA KNOWLEDGE INDEX: Backend Intelligence belum dikonfigurasi.");
+    return;
+  }
+  intelligenceJsonpRequest("knowledge_index",{
     fileId:String(fileId),
-    fileName:String(fileName||""),
-    user_id:getZoyaUserId()
+    fileName:String(fileName||"")
   },120000).then(function(result){
     console.log("ZOYA KNOWLEDGE INDEXED:",result);
   }).catch(function(error){
