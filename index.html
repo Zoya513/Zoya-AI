@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>ZOYA AI</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%23111%22/%3E%3Ctext x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2230%22 font-weight=%22700%22 fill=%22white%22%3EZ%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="https://drive.google.com/thumbnail?id=13yvCD_AJqoGExm57zGdtTUEezW5EAWo9&sz=w128">
 <style>
 *{box-sizing:border-box}html,body{margin:0;padding:0;width:100%;height:100%}body{font-family:Arial,sans-serif;background:#fff;color:#202123}.zora{width:100%;max-width:900px;height:650px;margin:auto;display:flex;flex-direction:column;background:#fff;overflow:hidden}:root{--zora-logo:url("https://drive.google.com/thumbnail?id=13yvCD_AJqoGExm57zGdtTUEezW5EAWo9&sz=w1000")}.header{height:64px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid #eee;flex-shrink:0}.logo,.avatar,.welcome-logo{background-image:var(--zora-logo);background-repeat:no-repeat;background-size:270%;background-position:center 38%;background-color:#111;overflow:hidden}.logo{width:38px;height:38px;border-radius:12px;margin-right:12px}.title{font-size:18px;font-weight:600}.status{margin-left:10px;font-size:12px;color:#777}.chat{flex:1;overflow-y:auto;padding:30px 22px;scroll-behavior:smooth}.message{display:flex;margin-bottom:28px;width:100%}.message.user{justify-content:flex-end}.message.ai{justify-content:flex-start}.avatar{width:32px;height:32px;border-radius:10px;margin-right:10px;flex-shrink:0}.bubble{max-width:75%;line-height:1.6;font-size:15px;overflow-wrap:anywhere}.user .bubble{background:#f0f0f0;padding:12px 16px;border-radius:18px;white-space:pre-wrap}.ai .bubble{white-space:normal}.ai .bubble strong{font-weight:700}.ai .bubble em{font-style:italic}.ai-heading{display:inline-block;font-weight:700;margin:6px 0 2px}.ai-code-block{display:block;background:#f5f5f5;padding:10px 12px;margin:8px 0;border-radius:8px;font-family:monospace;white-space:pre-wrap;overflow-x:auto}.ai .bubble code{background:#f1f1f1;padding:2px 5px;border-radius:5px;font-family:monospace;font-size:13px}.ai-bullet,.ai-number{display:block;margin-left:4px;padding-left:4px}.welcome{text-align:center;margin-top:100px}.welcome-logo{width:65px;height:65px;margin:auto;border-radius:20px}.welcome h1{margin:20px 0 8px;font-size:26px}.welcome p{color:#777;font-size:14px}.loading,.retry-status{font-size:13px;color:#888;display:none}.loading{margin:0 0 12px 64px}.retry-status{margin:0 0 15px 64px}.dot{animation:blink 1.4s infinite}.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}.input-area{padding:15px 20px 20px;flex-shrink:0}
 .input-box{display:flex;flex-direction:column;border:1px solid #d9d9d9;border-radius:18px;padding:7px 8px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.04)}
@@ -69,6 +69,8 @@
 #documentInput,#imageInput,#cameraInput{display:none !important}
 .upload-progress,.upload-meta{display:none}
 #voicePermission{display:none;position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:99999;width:min(420px,calc(100vw - 32px));padding:14px 16px;background:#fff;color:#111;border:1px solid #ddd;border-radius:14px;box-shadow:0 10px 35px rgba(0,0,0,.18);font-size:13px;line-height:1.45}#voicePermission.active{display:block}#voicePermission strong{display:block;margin-bottom:5px}#voicePermission button{margin-top:10px;border:0;border-radius:10px;padding:9px 13px;background:#111;color:#fff;cursor:pointer}@media(max-width:600px){.zora{height:100vh;height:100dvh}.header{padding:0 18px}.chat{padding:20px 15px}.bubble{max-width:85%}.welcome{margin-top:80px}.welcome h1{font-size:23px}.input-area{padding:10px 12px 14px}.upload-attachment{margin-left:1px;margin-right:1px}.upload-file-name{max-width:62vw}}
+@media(max-width:600px){html,body{height:100%;min-height:100%;overflow:hidden}.zora{min-height:100dvh;height:100dvh}.chat{min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.input-area{padding-bottom:max(14px,env(safe-area-inset-bottom))}.input-box{width:100%}#question{min-height:42px;max-height:120px;overflow-y:auto;-webkit-overflow-scrolling:touch}}
+@media(max-width:600px) and (orientation:portrait){.welcome{margin-top:56px}}
 
 /* =========================================================
    ZORA CREATION ENGINE — FILE CARD
@@ -115,7 +117,7 @@
 }
 .zoya-user:hover{background:#f3f3f3}
 .zoya-user.auth-pending{display:flex;background:#f1f1f1;pointer-events:none}.zoya-user.auth-pending img{opacity:.35}
-.zoya-booting #composer{pointer-events:none;opacity:.72}.zoya-booting #question,.zoya-booting #send,.zoya-booting #mic,.zoya-booting #uploadButton{pointer-events:none}.zoya-boot-status{position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:11px;color:#888;white-space:nowrap;display:none}.zoya-user.auth-pending + .zoya-boot-status{display:block}
+.zoya-booting #composer{pointer-events:none;opacity:.72}.zoya-booting #question,.zoya-booting #send,.zoya-booting #mic,.zoya-booting #uploadButton{pointer-events:none}.zoya-boot-status{display:none;margin:10px auto 0;text-align:center;font-size:12px;line-height:1.4;color:#777;white-space:normal}.zoya-boot-status.active{display:block}
 .zoya-user:hover { background:#f3f3f3; }
 .zoya-user img {
     width: 30px;
@@ -211,9 +213,8 @@
   <button type="button" class="zoya-user" id="zoyaUser" onclick="logoutZoya()" title="Akun Google">
     <img id="zoyaUserPicture" alt="Foto profil" referrerpolicy="no-referrer">
   </button>
-  <span class="zoya-boot-status" id="zoyaBootStatus">Menyiapkan akun...</span>
 </div></div>
-<div class="chat" id="chat"><div class="welcome" id="welcome"><div class="welcome-logo"></div><h1>Apa yang bisa saya bantu?</h1><p>Tanyakan sesuatu kepada ZOYA AI</p></div></div>
+<div class="chat" id="chat"><div class="welcome" id="welcome"><div class="welcome-logo"></div><h1>Apa yang bisa saya bantu?</h1><p>Tanyakan sesuatu kepada ZOYA AI</p><div class="zoya-boot-status" id="zoyaBootStatus">Memverifikasi akun...</div></div></div>
 <div class="loading" id="loading">ZOYA sedang berpikir <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
 <div class="retry-status" id="retryStatus">Mencoba menghubungkan kembali...</div>
 <div class="input-area"><div class="input-box" id="composer">
@@ -369,7 +370,7 @@ function clearZoyaAuthError() {
 
 function setZoyaBootStatus(text,show=true){
     const el=document.getElementById("zoyaBootStatus");
-    if(el){el.textContent=String(text||"Menyiapkan akun...");el.style.display=show?"block":"none";}
+    if(el){el.textContent=String(text||"Menyiapkan akun...");el.classList.toggle("active",!!show);}
 }
 function setZoyaBooting(booting,text){
     document.body.classList.toggle("zoya-booting",!!booting);
@@ -1129,6 +1130,8 @@ function showAgentResult_(result){
 async function sendMessage(){
   if(!zoyaAuthReady){return;}
   if(isSending||isUploading||uploadQueue.some(x=>x.status==="queued"))return;
+  // Jika Kirim ditekan saat voice aktif, hentikan recognition dulu.
+  stopVoiceForSend();
   const q=questionInput.value.trim();
   const attachments=attachmentMetadata();
   if(!q&&!attachments.length)return;
@@ -1257,7 +1260,8 @@ async function sendMessage(){
     isSending=false;
     sendButton.disabled=micButton.disabled=uploadButton.disabled=false;
     refreshSendState();
-    questionInput.focus();
+    if(window.innerWidth>600)questionInput.focus();
+    else scrollComposerIntoView();
   }
 }
 
@@ -1556,77 +1560,47 @@ async function runCreationEngine(instruction,attachments,route=null){
   return result;
 }
 function autoResizeTextarea(){questionInput.style.height="auto";questionInput.style.height=Math.min(questionInput.scrollHeight,150)+"px"}
+function scrollComposerIntoView(){if(window.innerWidth>600)return;requestAnimationFrame(()=>{try{questionInput.scrollIntoView({block:"nearest",behavior:"smooth"})}catch(e){}})}
+function stopVoiceForSend(){if(!recognition||!isListening)return;voiceStopRequested=true;isListening=false;try{recognition.stop()}catch(e){}micButton.classList.remove("listening");micButton.textContent="🎤";voiceStatus.classList.remove("active")}
 /* VOICE */
-function setupVoiceInput(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){micButton.onclick=()=>alert("Speech-to-Text tidak didukung browser ini. Gunakan Chrome atau Edge terbaru.");return}recognition=new SR();recognition.lang="id-ID";recognition.continuous=false;recognition.interimResults=true;recognition.maxAlternatives=1;function help(msg){voiceStatus.textContent=msg;voiceStatus.classList.add("active");voicePermission.classList.add("active");micButton.classList.add("permission-needed")}function hide(){voicePermission.classList.remove("active");micButton.classList.remove("permission-needed")}async function permission(){if(!navigator.mediaDevices?.getUserMedia){help("Browser tidak menyediakan akses microphone. Gunakan Chrome atau Edge.");return false}try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());hide();return true}catch(e){help(e.name==="NotAllowedError"?"Izin microphone ditolak. Izinkan microphone melalui ikon kunci di address bar.":e.name==="NotFoundError"?"Microphone tidak ditemukan.":"ZORA tidak bisa mengakses microphone: "+e.name);return false}}voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};recognition.onstart=()=>{isListening=true;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};recognition.onresult=e=>{
-  let finalChunk="";
-  let interimChunk="";
-
-  for(let i=e.resultIndex;i<e.results.length;i++){
-    const part=String(e.results[i][0]?.transcript||"").trim();
-    if(!part) continue;
-
-    if(e.results[i].isFinal){
-      finalChunk += (finalChunk ? " " : "") + part;
-    }else{
-      interimChunk += (interimChunk ? " " : "") + part;
+function setupVoiceInput(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){micButton.onclick=()=>alert("Speech-to-Text tidak didukung browser ini. Gunakan Chrome atau Edge terbaru.");return}
+  recognition=new SR();recognition.lang="id-ID";recognition.continuous=false;recognition.interimResults=true;recognition.maxAlternatives=1;
+  let voiceStopRequested=false,voicePermissionBusy=false;
+  function help(msg){voiceStatus.textContent=msg;voiceStatus.classList.add("active");voicePermission.classList.add("active");micButton.classList.add("permission-needed")}
+  function hide(){voicePermission.classList.remove("active");micButton.classList.remove("permission-needed")}
+  async function permission(){
+    if(!navigator.mediaDevices?.getUserMedia){help("Browser tidak menyediakan akses microphone. Gunakan Chrome atau Edge.");return false}
+    if(voicePermissionBusy)return false;voicePermissionBusy=true;
+    try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());hide();return true}
+    catch(e){help(e.name==="NotAllowedError"?"Izin microphone ditolak. Izinkan microphone melalui ikon kunci di address bar.":e.name==="NotFoundError"?"Microphone tidak ditemukan.":"ZORA tidak bisa mengakses microphone: "+e.name);return false}
+    finally{voicePermissionBusy=false}
+  }
+  voicePermissionButton.onclick=async()=>{if(await permission())voicePermissionText.textContent="Izin berhasil. Tekan 🎤 untuk mulai bicara."};
+  recognition.onstart=()=>{isListening=true;voiceStopRequested=false;voiceBaseText=questionInput.value.trim();micButton.classList.add("listening");micButton.textContent="⏹";voiceStatus.textContent="🎙️ Mendengarkan...";voiceStatus.classList.add("active");hide()};
+  recognition.onresult=e=>{
+    let finalChunk="",interimChunk="";
+    for(let i=e.resultIndex;i<e.results.length;i++){const part=String(e.results[i][0]?.transcript||"").trim();if(!part)continue;if(e.results[i].isFinal)finalChunk+=(finalChunk?" ":"")+part;else interimChunk+=(interimChunk?" ":"")+part}
+    if(finalChunk)voiceCommittedText=(voiceCommittedText+" "+finalChunk).trim();voiceInterimText=interimChunk;
+    const combined=[voiceBaseText,voiceCommittedText,voiceInterimText].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+    if(combined){questionInput.value=combined;autoResizeTextarea();scrollComposerIntoView()}
+  };
+  recognition.onerror=e=>{if(e.error==="aborted")return;if(e.error==="not-allowed")help("Akses microphone ditolak. Izinkan microphone dari ikon kunci di address bar.");else if(e.error==="no-speech"){voiceStatus.textContent="Tidak terdengar suara. Coba bicara lagi.";voiceStatus.classList.add("active")}else help("Speech-to-Text gagal: "+e.error)};
+  recognition.onend=()=>{
+    // FIX: jangan restart setelah STOP atau SEND. Ini sumber loop error voice sebelumnya.
+    if(isListening&&!voiceStopRequested&&!isSending){setTimeout(()=>{if(!isListening||voiceStopRequested||isSending)return;try{recognition.start()}catch(e){}},80);return}
+    isListening=false;voiceStopRequested=false;micButton.classList.remove("listening");micButton.textContent="🎤";voiceStatus.classList.remove("active")
+  };
+  micButton.onclick=async()=>{
+    if(isSending)return;
+    if(isListening){voiceStopRequested=true;isListening=false;try{recognition.stop()}catch(e){}return}
+    if(await permission()){
+      voiceBaseText=questionInput.value.trim();voiceCommittedText="";voiceInterimText="";voiceStopRequested=false;
+      try{recognition.start()}catch(e){setTimeout(()=>{try{if(!isListening&&!isSending)recognition.start()}catch(x){}},300)}
     }
-  }
-
-  if(finalChunk){
-    voiceCommittedText=(voiceCommittedText+" "+finalChunk).trim();
-  }
-
-  voiceInterimText=interimChunk;
-
-  const combined=[voiceBaseText,voiceCommittedText,voiceInterimText]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g," ")
-    .trim();
-
-  if(combined){
-    questionInput.value=combined;
-    autoResizeTextarea();
-  }
-};recognition.onerror=e=>{if(e.error==="not-allowed")help("Akses microphone ditolak. Izinkan microphone dari ikon kunci di address bar.");else if(e.error==="no-speech"){voiceStatus.textContent="Tidak terdengar suara. Coba bicara lagi.";voiceStatus.classList.add("active")}else help("Speech-to-Text gagal: "+e.error)};recognition.onend=()=>{
-  if(isListening){
-    // Restart recognition after each completed phrase/session.
-    // voiceCommittedText tetap dipertahankan sehingga jeda tidak menghapus teks.
-    setTimeout(()=>{
-      try{
-        if(isListening) recognition.start();
-      }catch(e){}
-    },80);
-    return;
-  }
-
-  micButton.classList.remove("listening");
-  micButton.textContent="🎤";
-  voiceStatus.classList.remove("active");
-};micButton.onclick=async()=>{
-  if(isSending)return;
-
-  if(isListening){
-    isListening=false;
-    recognition.stop();
-    return;
-  }
-
-  if(await permission()){
-    voiceBaseText=questionInput.value.trim();
-    voiceCommittedText="";
-    voiceInterimText="";
-    try{
-      recognition.start();
-    }catch(e){
-      setTimeout(()=>{
-        try{
-          if(!isListening)recognition.start();
-        }catch(x){}
-      },300);
-    }
-  }
-}}
+  };
+}
 
 /* =========================================================
    DOCUMENT UPLOAD — FINAL POST CHUNK VERSION
