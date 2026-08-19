@@ -185,6 +185,16 @@
     line-height: 1.45;
 }
 
+
+/* ZOYA MOBILE VIEWPORT FIX — scoped to small screens */
+@media(max-width:600px){
+  .zora{height:var(--zoya-vh,100dvh);min-height:0;max-height:100dvh}
+  .chat{min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior-y:contain;overflow-anchor:auto}
+  .input-area{flex:0 0 auto;position:relative;z-index:5}
+  .input-box{min-width:0}
+  #question{min-width:0;width:100%;max-height:120px;overflow-y:auto;box-sizing:border-box}
+}
+
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -1451,46 +1461,62 @@ function findBestCreationContext(instruction,attachments){
   const q=String(instruction||"").trim();
   const wantsConversation=/\b(percakapan|conversation|chat|riwayat|history|obrolan)\b/i.test(q);
   const explicit=hasExplicitContextReference_(q);
+  const formatOnly=isFormatOnlyRequest(q);
 
-  // Untuk "yang tadi/yang barusan/sebelumnya jadikan PDF/Word/dll",
-  // jangan memakai balasan sosial terakhir sebagai sumber. Cari jawaban
-  // substantif terakhir dari history aktif.
-  let latest="";
+  let latestAssistant="";
+  let latestAssistantUser="";
   let latestUser="";
+
   if(Array.isArray(conversationHistory)){
     for(let i=conversationHistory.length-1;i>=0;i--){
       const x=conversationHistory[i];
-      if(!x || x.role!=="assistant" || !x.text) continue;
-      if(!isUsefulContextAnswer_(x.text)) continue;
+      if(!x||!x.text) continue;
 
-      // Ambil pasangan user terdekat untuk mengetahui topik sumber.
-      let prevUser="";
-      for(let j=i-1;j>=0;j--){
-        if(conversationHistory[j] && conversationHistory[j].role==="user"){
-          prevUser=String(conversationHistory[j].text||"");
-          break;
+      if(!latestUser && x.role==="user"){
+        const candidate=String(x.text||"").trim();
+        if(candidate && !isCreationRequest(candidate,[])){
+          latestUser=candidate;
         }
       }
-      latest=String(x.text);
-      latestUser=prevUser;
-      break;
+
+      if(!latestAssistant && x.role==="assistant" && isUsefulContextAnswer_(x.text)){
+        latestAssistant=String(x.text);
+        for(let j=i-1;j>=0;j--){
+          if(conversationHistory[j] && conversationHistory[j].role==="user"){
+            latestAssistantUser=String(conversationHistory[j].text||"");
+            break;
+          }
+        }
+      }
+
+      if(latestAssistant && latestUser) break;
     }
   }
 
-  if(!latest && lastSubstantiveAssistantText && isUsefulContextAnswer_(lastSubstantiveAssistantText)){
-    latest=String(lastSubstantiveAssistantText);
+  if(!latestAssistant && lastSubstantiveAssistantText && isUsefulContextAnswer_(lastSubstantiveAssistantText)){
+    latestAssistant=String(lastSubstantiveAssistantText);
   }
 
-  const latestScore=contextRelevanceScore_(q,latest);
+  const latestScore=contextRelevanceScore_(q,latestAssistant);
 
-  // Referensi eksplisit adalah instruksi kuat. Gunakan jawaban substantif
-  // terakhir, bukan memaksa keyword overlap pada frasa seperti "yang tadi".
-  if(explicit && latest){
+  // Referensi eksplisit: sumber utama adalah jawaban substantif terakhir.
+  if(explicit && latestAssistant){
     return {
-      text:compactCreationContext(latest),
+      text:compactCreationContext(latestAssistant),
       sourceType:"explicit_latest_substantive_answer",
       score:1,
-      sourceUser:latestUser
+      sourceUser:latestAssistantUser
+    };
+  }
+
+  // "PDF/DOCX/XLSX/PPTX" saja berarti "jadikan materi terakhir sebagai file".
+  // Gunakan jawaban assistant terakhir; jangan jatuh ke creation baru.
+  if(formatOnly && latestAssistant){
+    return {
+      text:compactCreationContext(latestAssistant),
+      sourceType:"format_only_latest_substantive_answer",
+      score:1,
+      sourceUser:latestAssistantUser
     };
   }
 
@@ -1503,20 +1529,31 @@ function findBestCreationContext(instruction,attachments){
     }
     if(recent.length){
       return {
-        text:compactCreationContext(recent.join("\\n\\n")),
+        text:compactCreationContext(recent.join("\n\n")),
         sourceType:"recent_substantive_conversation",
         score:1
       };
     }
   }
 
-  // Untuk referensi implisit, gunakan jawaban terakhir hanya bila cukup relevan.
-  if(latest && latestScore>=0.45){
+  // Jika tidak ada jawaban assistant (misalnya history hanya menyimpan pesan user),
+  // format-only boleh memakai pesan user terakhir yang substantif.
+  // Ini hanya berlaku untuk format-only agar chat biasa tidak berubah perilakunya.
+  if(formatOnly && latestUser){
     return {
-      text:compactCreationContext(latest),
+      text:compactCreationContext(latestUser),
+      sourceType:"format_only_latest_user_message",
+      score:1,
+      sourceUser:latestUser
+    };
+  }
+
+  if(latestAssistant && latestScore>=0.45){
+    return {
+      text:compactCreationContext(latestAssistant),
       sourceType:"relevant_latest_context",
       score:latestScore,
-      sourceUser:latestUser
+      sourceUser:latestAssistantUser
     };
   }
 
@@ -1529,8 +1566,17 @@ async function runCreationEngine(instruction,attachments,route=null){
   if(!format)throw new Error("Format file tidak dapat ditentukan.");
   const edit=isEditRequest(instruction,attachments);
   const source=findBestCreationContext(instruction,attachments);
-  const contextPolicy=String((route&&route.context_policy)||"").toUpperCase();
-  const memoryPolicy=String((route&&route.memory_policy)||"").toUpperCase();
+  const hasCreationSource=!!String(source&&source.text||"").trim();
+  let contextPolicy=String((route&&route.context_policy)||"").toUpperCase();
+  let memoryPolicy=String((route&&route.memory_policy)||"").toUpperCase();
+
+  // Jika Creation Context sudah dipilih secara deterministik, policy BLOCK
+  // dari local router tidak boleh menghapus sumber tersebut di bridge.
+  // BLOCK tetap dipakai untuk creation yang benar-benar baru.
+  if(hasCreationSource && !attachments.length){
+    contextPolicy="ALLOW_PREVIOUS_RELEVANT";
+    if(!memoryPolicy) memoryPolicy="RELEVANT_ONLY";
+  }
   const params={
     format:format,
     instruction:String(instruction),
@@ -1545,7 +1591,10 @@ async function runCreationEngine(instruction,attachments,route=null){
     zoya_format:format,
     zoya_normalized_input:String((route&&route.normalized_input)||instruction),
     zoya_context_policy:contextPolicy || (hasExplicitContextReference_(instruction)?"ALLOW_PREVIOUS_RELEVANT":"BLOCK"),
-    zoya_memory_policy:memoryPolicy || (hasExplicitContextReference_(instruction)?"RELEVANT_ONLY":"BLOCK")
+    zoya_memory_policy:memoryPolicy || (hasExplicitContextReference_(instruction)?"RELEVANT_ONLY":"BLOCK"),
+    // Defense-in-depth: backend menerima history creation agar format-only
+    // tetap dapat memulihkan sumber jika frontend context tidak tersedia.
+    history:JSON.stringify(Array.isArray(conversationHistory)?conversationHistory.slice(-20):[])
   };
 
   // PENTING: attachment harus diteruskan untuk CREATE maupun EDIT.
@@ -1950,6 +1999,31 @@ function arrayBufferToBase64(buffer){
 
   return btoa(binary);
 }
+
+/* =========================================================
+   MOBILE KEYBOARD / VIEWPORT
+   - Jangan mengunci composer ke viewport lama saat keyboard terbuka.
+   - Tidak mengubah layout desktop.
+   ========================================================= */
+(function setupMobileViewport(){
+  const apply=()=>{
+    if(!window.visualViewport || window.innerWidth>600) return;
+    const vv=window.visualViewport;
+    document.documentElement.style.setProperty("--zoya-vh", Math.max(320, vv.height)+"px");
+    requestAnimationFrame(()=>{
+      if(document.activeElement===questionInput){
+        try{questionInput.scrollIntoView({block:"nearest",behavior:"auto"});}catch(e){}
+      }
+    });
+  };
+  apply();
+  window.addEventListener("resize",apply,{passive:true});
+  window.addEventListener("orientationchange",()=>setTimeout(apply,120),{passive:true});
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize",apply,{passive:true});
+    window.visualViewport.addEventListener("scroll",apply,{passive:true});
+  }
+})();
 
 questionInput.oninput=autoResizeTextarea;questionInput.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}};sendButton.onclick=sendMessage;console.log("ZOYA AI FINAL UPLOAD POST AKTIF");
 
