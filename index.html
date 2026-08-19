@@ -126,6 +126,21 @@
     object-fit: cover;
     border: 1px solid #eee;
 }
+.zoya-history-btn{width:34px;height:34px;margin-right:6px;border:1px solid #e5e5e5;border-radius:10px;background:#fff;color:#202123;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;line-height:1;transition:.18s ease}
+.zoya-history-btn:hover{background:#f5f5f5}
+.zoya-history-btn:disabled{opacity:.45;cursor:not-allowed}
+.zoya-history-overlay{position:fixed;inset:0;z-index:99990;display:none;background:rgba(0,0,0,.18)}
+.zoya-history-overlay.active{display:block}
+.zoya-history-drawer{position:absolute;left:0;top:0;bottom:0;width:min(390px,92vw);background:#fff;box-shadow:10px 0 35px rgba(0,0,0,.16);display:flex;flex-direction:column}
+.zoya-history-head{height:58px;flex:0 0 58px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 18px;border-bottom:1px solid #eee}
+.zoya-history-title{font-size:17px;font-weight:700}
+.zoya-history-close{width:34px;height:34px;border:0;border-radius:10px;background:transparent;font-size:23px;line-height:1;cursor:pointer}
+.zoya-history-close:hover{background:#f3f3f3}
+#zoyaHistoryFrame{width:100%;flex:1 1 auto;min-height:0;border:0;background:#fff}
+.zoya-history-loading{position:absolute;inset:58px 0 0;display:flex;align-items:center;justify-content:center;color:#777;font-size:13px;background:#fff;z-index:2}
+.zoya-history-loading.hidden{display:none}
+@media(max-width:600px){.zoya-history-drawer{width:100%}}
+
 
 .zoya-auth-overlay {
     position: fixed;
@@ -219,6 +234,7 @@
 <div class="zora">
 <div class="header"><div class="logo"></div><div class="title">ZOYA AI</div><div class="status">AI Assistant</div>
 <div class="zoya-account">
+  <button type="button" class="zoya-history-btn" id="zoyaHistoryButton" onclick="openZoyaHistory()" title="Riwayat chat & file" aria-label="Buka riwayat">☰</button>
   <button type="button" class="zoya-login-btn" id="zoyaLoginButton" onclick="openZoyaGoogleLogin()">Masuk dengan Google</button>
   <button type="button" class="zoya-user" id="zoyaUser" onclick="logoutZoya()" title="Akun Google">
     <img id="zoyaUserPicture" alt="Foto profil" referrerpolicy="no-referrer">
@@ -249,6 +265,19 @@
 </div>
 <div id="voicePermission" role="dialog" aria-live="polite"><strong>🎤 Izin microphone diperlukan</strong><div id="voicePermissionText">ZORA membutuhkan akses microphone untuk mengubah suara kamu menjadi teks.</div><button id="voicePermissionButton" type="button">Izinkan Microphone</button></div>
 </div>
+
+<!-- ZOYA HISTORY — UI terpisah, dimuat dari ZOYA_HISTORY.html di GitHub main. -->
+<div class="zoya-history-overlay" id="zoyaHistoryOverlay" aria-hidden="true">
+  <div class="zoya-history-drawer" role="dialog" aria-modal="true" aria-label="Riwayat ZOYA">
+    <div class="zoya-history-head">
+      <div class="zoya-history-title">Riwayat</div>
+      <button type="button" class="zoya-history-close" id="zoyaHistoryClose" aria-label="Tutup riwayat">×</button>
+    </div>
+    <div class="zoya-history-loading" id="zoyaHistoryLoading">Memuat riwayat...</div>
+    <iframe id="zoyaHistoryFrame" title="Riwayat ZOYA"></iframe>
+  </div>
+</div>
+
 <script>
 const BACKEND_URL="https://script.google.com/macros/s/AKfycbw33TXwySs86gmsMloKyXFSXiaQx38nnn-7Lo8-af-BK6nnchC2wGH52ogF-aVit1j7Cg/exec";
 // Semantic Router V1.2 — hanya untuk menentukan intent/format/context policy.
@@ -262,6 +291,15 @@ const AGENT_BACKEND_URL="https://script.google.com/macros/s/AKfycbznX3ZesRcsJdc8
 const INTELLIGENCE_BACKEND_URL="https://script.google.com/macros/s/AKfycbwXjOmYJJx3WkXNEG30U10soyXzpjM1Db2gkulZE-5-40Wamronvx5i-f_dvyGZtC95/exec";
 const ZOYA_INTELLIGENCE_ENABLED=!!INTELLIGENCE_BACKEND_URL&&!INTELLIGENCE_BACKEND_URL.includes("PASTE_INTELLIGENCE_BACKEND_URL_HERE");
 let zoyaIntelligenceProfile=null,zoyaIntelligencePreferences=null,zoyaIntelligenceMemory=[],lastInputWasVoice=false;
+/* =========================================================
+   BACKEND 4 — HISTORY
+========================================================= */
+const HISTORY_BACKEND_URL="https://script.google.com/macros/s/AKfycbyhSvIhm7XLnoSb_Xw0l05ajObVIws-rfXBgSUl-2MnhQXtGD8w2-fk-_19npMHDrLKig/exec";
+const HISTORY_UI_SOURCE_URL="https://raw.githubusercontent.com/Zoya513/Zoya-AI/main/ZOYA_HISTORY.html";
+const ZOYA_HISTORY_ENABLED=!!HISTORY_BACKEND_URL&&!HISTORY_BACKEND_URL.includes("PASTE_HISTORY_BACKEND_URL_HERE");
+let zoyaHistoryConversationId="";
+let zoyaHistoryConversationPromise=null;
+let zoyaHistoryFrameLoadingPromise=null;
 
 
 /* =========================================================
@@ -477,6 +515,145 @@ function waitForZoyaProfileReady(session){
         img.src=picture;
     });
 }
+/* =========================================================
+   BACKEND 4 — HISTORY CLIENT
+========================================================= */
+function historyCallbackName(){return"zoyaHistoryMain_"+Date.now()+"_"+Math.random().toString(36).slice(2,10)}
+function hasHistoryBackend(){return ZOYA_HISTORY_ENABLED}
+function historyJsonpRequest(action,params,timeoutMs){
+  return new Promise(function(resolve,reject){
+    if(!hasHistoryBackend()){reject(new Error("Backend History belum dikonfigurasi."));return}
+    const userId=getZoyaUserId();
+    if(!userId){reject(new Error("Silakan login dengan Google terlebih dahulu."));return}
+    const cb=historyCallbackName(),script=document.createElement("script");let done=false,timer=null;
+    function cleanup(){if(timer)clearTimeout(timer);if(script.parentNode)script.parentNode.removeChild(script);try{delete window[cb]}catch(e){window[cb]=undefined}}
+    window[cb]=function(data){if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend History tidak memberikan respons."));return}resolve(data)};
+    script.onerror=function(){if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima respons dari Backend History."))};
+    const p=new URLSearchParams(params||{});p.set("action",String(action||""));p.set("user_id",userId);p.set("callback",cb);p.set("_",String(Date.now()));
+    script.src=HISTORY_BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);
+    timer=setTimeout(function(){if(done)return;done=true;cleanup();reject(new Error("Backend History terlalu lama merespons."))},Number(timeoutMs)||15000);
+  });
+}
+function historyConversationTitle(text){const s=String(text||"").replace(/\s+/g," ").trim();if(!s)return"Percakapan baru";return s.length>48?s.slice(0,48).trim()+"...":s}
+function ensureHistoryConversation(title){
+  if(!hasHistoryBackend()||!getZoyaUserId())return Promise.resolve("");
+  if(zoyaHistoryConversationId)return Promise.resolve(zoyaHistoryConversationId);
+  if(zoyaHistoryConversationPromise)return zoyaHistoryConversationPromise;
+  zoyaHistoryConversationPromise=historyJsonpRequest("conversation_create",{title:historyConversationTitle(title)},15000).then(function(r){
+    zoyaHistoryConversationId=String(r.conversation&&r.conversation.conversationId||"");
+    return zoyaHistoryConversationId;
+  }).catch(function(error){console.warn("ZOYA HISTORY conversation_create:",error);zoyaHistoryConversationPromise=null;return""});
+  return zoyaHistoryConversationPromise;
+}
+function saveHistoryTurn(userText,assistantText,attachments,metadata){
+  if(!hasHistoryBackend()||!getZoyaUserId())return;
+  ensureHistoryConversation(userText).then(function(conversationId){
+    if(!conversationId)return;
+    return historyJsonpRequest("message_save",{
+      conversation_id:conversationId,role:"user",content:String(userText||""),
+      attachments:JSON.stringify(Array.isArray(attachments)?attachments:[]),
+      metadata:JSON.stringify(metadata||{})
+    },15000).then(function(){
+      if(!assistantText)return;
+      return historyJsonpRequest("message_save",{
+        conversation_id:conversationId,role:"assistant",content:String(assistantText||""),
+        attachments:"[]",metadata:JSON.stringify(metadata||{})
+      },15000);
+    });
+  }).catch(function(error){console.warn("ZOYA HISTORY turn_save:",error)});
+}
+function saveHistoryFile(fileData,source,conversationId,metadata){
+  if(!hasHistoryBackend()||!getZoyaUserId()||!fileData)return;
+  const fileId=String(fileData.fileId||fileData.file_id||"").trim();
+  const fileName=String(fileData.fileName||fileData.file_name||"").trim();
+  if(!fileId||!fileName)return;
+
+  const sourceValue=String(source||"UPLOAD");
+  const existingConversationId=String(conversationId||zoyaHistoryConversationId||"");
+  const conversationPromise=existingConversationId
+    ? Promise.resolve(existingConversationId)
+    : sourceValue==="CREATED"
+      ? ensureHistoryConversation(fileName)
+      : Promise.resolve("");
+
+  conversationPromise.then(function(cid){
+    return historyJsonpRequest("file_save",{
+      file_id:fileId,file_name:fileName,
+      mime_type:String(fileData.mimeType||fileData.mime_type||"application/octet-stream"),
+      size:String(Number(fileData.size)||0),source:sourceValue,
+      conversation_id:String(cid||""),
+      metadata:JSON.stringify(metadata||{})
+    },15000);
+  }).catch(function(error){console.warn("ZOYA HISTORY file_save:",error)});
+}
+function clearZoyaRenderedChatForHistory(){
+  if(!chat)return;
+  chat.querySelectorAll(".message").forEach(function(node){node.remove()});
+  if(welcome&&welcome.parentNode)welcome.remove();
+}
+function renderHistoryConversationInMain(conversation,messages){
+  const list=Array.isArray(messages)?messages:[];
+  zoyaHistoryConversationId=String(conversation&&conversation.conversationId||"");
+  zoyaHistoryConversationPromise=null;
+  clearZoyaRenderedChatForHistory();
+  conversationHistory=list.filter(function(m){return m&&(m.role==="user"||m.role==="assistant")}).map(function(m){return{role:m.role,text:String(m.content||"")}});
+  conversationHistory=conversationHistory.slice(-MAX_HISTORY_MESSAGES);
+  lastSubstantiveAssistantText="";
+  for(let i=conversationHistory.length-1;i>=0;i--){if(conversationHistory[i].role==="assistant"&&!isCreationConfirmationText(conversationHistory[i].text)){lastSubstantiveAssistantText=conversationHistory[i].text;break}}
+  list.forEach(function(message){
+    if(!message||!message.role)return;
+    if(message.role==="user"){
+      addUserMessageWithAttachments(String(message.content||""),Array.isArray(message.attachments)?message.attachments:[]);
+    }else if(String(message.content||"").trim()){
+      addMessage(String(message.content||""),"ai");
+    }
+  });
+  saveMemory();
+  closeZoyaHistory();
+}
+async function loadHistoryUI(){
+  const frame=document.getElementById("zoyaHistoryFrame"),loadingEl=document.getElementById("zoyaHistoryLoading");
+  if(!frame)return;
+  if(zoyaHistoryFrameLoadingPromise)return zoyaHistoryFrameLoadingPromise;
+  zoyaHistoryFrameLoadingPromise=fetch(HISTORY_UI_SOURCE_URL,{cache:"no-store"}).then(function(response){
+    if(!response.ok)throw new Error("ZOYA_HISTORY.html gagal dimuat dari GitHub.");
+    return response.text();
+  }).then(function(html){
+    frame.onload=function(){if(loadingEl)loadingEl.classList.add("hidden");sendHistoryUserToFrame()};
+    frame.srcdoc=html;
+  }).catch(function(error){
+    console.error("ZOYA HISTORY UI:",error);
+    if(loadingEl){loadingEl.textContent="Gagal memuat Riwayat. Coba lagi.";loadingEl.classList.remove("hidden")}
+    throw error;
+  }).finally(function(){zoyaHistoryFrameLoadingPromise=null});
+  return zoyaHistoryFrameLoadingPromise;
+}
+function sendHistoryUserToFrame(){
+  const frame=document.getElementById("zoyaHistoryFrame"),userId=getZoyaUserId();
+  if(!frame||!userId||!frame.contentWindow)return;
+  try{frame.contentWindow.postMessage({type:"zoya-history-user",userId:userId},"*")}catch(error){console.warn("ZOYA HISTORY user bridge:",error)}
+}
+function openZoyaHistory(){
+  const overlay=document.getElementById("zoyaHistoryOverlay"),loadingEl=document.getElementById("zoyaHistoryLoading");
+  if(!overlay)return;
+  if(!getZoyaUserId()){showZoyaAuthError("Silakan login dengan Google terlebih dahulu.");if(zoyaAuthOverlay)zoyaAuthOverlay.style.display="flex";return}
+  overlay.classList.add("active");overlay.setAttribute("aria-hidden","false");
+  if(loadingEl){loadingEl.textContent="Memuat riwayat...";loadingEl.classList.remove("hidden")}
+  loadHistoryUI().then(function(){sendHistoryUserToFrame()}).catch(function(){});
+}
+function closeZoyaHistory(){
+  const overlay=document.getElementById("zoyaHistoryOverlay");
+  if(!overlay)return;
+  overlay.classList.remove("active");overlay.setAttribute("aria-hidden","true");
+}
+window.addEventListener("message",function(event){
+  const data=event.data||{},frame=document.getElementById("zoyaHistoryFrame");
+  if(data.type==="zoya-history-request-user"&&frame&&event.source===frame.contentWindow){sendHistoryUserToFrame();return}
+  if(data.type==="zoya-history-open-conversation"&&frame&&event.source===frame.contentWindow){
+    renderHistoryConversationInMain(data.conversation||null,Array.isArray(data.messages)?data.messages:[]);return;
+  }
+});
+document.addEventListener("keydown",function(event){if(event.key==="Escape")closeZoyaHistory()});
 async function finalizeZoyaBoot(session){
     setZoyaBooting(true,"Menyiapkan akun...");
     try{
@@ -499,8 +676,10 @@ async function finalizeZoyaBoot(session){
 }
 
 function updateZoyaAuthUI() {
+    const historyButton=document.getElementById("zoyaHistoryButton");
 
     if (!zoyaSession || !zoyaSession.user) {
+        if(historyButton)historyButton.style.display="none";
         setZoyaInteractionReady(false);
 
         if (zoyaAuthOverlay) {
@@ -527,6 +706,7 @@ function updateZoyaAuthUI() {
     }
 
     // Interaction readiness is controlled by finalizeZoyaBoot().
+    if(historyButton)historyButton.style.display="flex";
     if (zoyaLoginButton) {
         zoyaLoginButton.style.display =
             "none";
@@ -844,6 +1024,8 @@ async function handleZoyaGoogleCredential(
 
         conversationHistory=[];
         lastSubstantiveAssistantText="";
+        zoyaHistoryConversationId="";
+        zoyaHistoryConversationPromise=null;
         await finalizeZoyaBoot(zoyaSession);
 
         console.log(
@@ -891,6 +1073,9 @@ function logoutZoya() {
 
     zoyaSession =
         null;
+    zoyaHistoryConversationId="";
+    zoyaHistoryConversationPromise=null;
+    closeZoyaHistory();
     zoyaAuthPending = false;
     setZoyaInteractionReady(false);
 
@@ -912,6 +1097,10 @@ function logoutZoya() {
 
     updateZoyaAuthUI();
 }
+document.getElementById("zoyaHistoryClose")?.addEventListener("click",closeZoyaHistory);
+document.getElementById("zoyaHistoryOverlay")?.addEventListener("click",function(event){
+  if(event.target===this)closeZoyaHistory();
+});
 
 
 /* =========================================================
@@ -1271,6 +1460,7 @@ async function sendMessage(){
     conversationHistory.push({role:"user",text:displayQuestion},{role:"assistant",text:instantReply});
     lastSubstantiveAssistantText=instantReply;
     saveMemory();
+    saveHistoryTurn(displayQuestion,instantReply,attachments,{source:"CHAT"});
     addMessage(instantReply,"ai");
     isSending=false;
     sendButton.disabled=micButton.disabled=uploadButton.disabled=false;
@@ -1300,6 +1490,20 @@ async function sendMessage(){
         if(isUsefulContextAnswer_(answer)) lastSubstantiveAssistantText=answer;
         saveMemory();
         syncIntelligenceAfterTurn(displayQuestion,answer);
+        saveHistoryTurn(displayQuestion,answer,attachments,{source:"AGENT"});
+      }else{
+        saveHistoryTurn(displayQuestion,"Tugas Agent selesai.",attachments,{source:"AGENT"});
+      }
+
+      if(agentResult && agentResult.createdFile && agentResult.createdFile.fileId){
+        saveHistoryFile({
+          fileId:agentResult.createdFile.fileId,
+          fileName:agentResult.createdFile.fileName,
+          mimeType:agentResult.createdFile.mimeType,
+          size:agentResult.createdFile.size
+        },"CREATED",zoyaHistoryConversationId,{
+          downloadToken:agentResult.createdFile.downloadToken||agentResult.createdFile.fileId
+        });
       }
 
       showAgentResult_(agentResult);
@@ -1341,6 +1545,18 @@ async function sendMessage(){
       validateCreationResult(result);
       conversationHistory.push({role:"user",text:displayQuestion});
       saveMemory();
+      saveHistoryTurn(
+        displayQuestion,
+        "File berhasil dibuat: "+String(result.fileName||""),
+        attachments,
+        {source:"CREATION",format:String(result.type||"")}
+      );
+      saveHistoryFile(
+        result,
+        "CREATED",
+        zoyaHistoryConversationId,
+        {downloadToken:String(result.downloadToken||result.fileId||"")}
+      );
       addCreationResult(result);
       return;
     }
@@ -1359,6 +1575,18 @@ async function sendMessage(){
       validateCreationResult(result);
       conversationHistory.push({role:"user",text:displayQuestion});
       saveMemory();
+      saveHistoryTurn(
+        displayQuestion,
+        "File berhasil dibuat: "+String(result.fileName||""),
+        attachments,
+        {source:"CREATION",format:String(result.type||"")}
+      );
+      saveHistoryFile(
+        result,
+        "CREATED",
+        zoyaHistoryConversationId,
+        {downloadToken:String(result.downloadToken||result.fileId||"")}
+      );
       addCreationResult(result);
       return;
     }
@@ -1371,6 +1599,7 @@ async function sendMessage(){
     conversationHistory.push({role:"user",text:displayQuestion},{role:"assistant",text:a});
     if(isUsefulContextAnswer_(a)) lastSubstantiveAssistantText=a;
     saveMemory();
+    saveHistoryTurn(displayQuestion,a,attachments,{source:"CHAT"});
     addMessage(a,"ai");
   }catch(e){
     addMessage(creationMode?creationErrorMessage(e):"ZORA belum menerima respons dari server.\n\n"+(e.message||e),"ai");
@@ -1957,6 +2186,7 @@ async function uploadFileToBackend(file,ui){
 
 function enqueueFiles(files){Array.from(files||[]).forEach(file=>{const ext=file.name.toLowerCase().split(".").pop();if(!ALLOWED_UPLOAD_EXTENSIONS.includes(ext)||file.size>MAX_UPLOAD_BYTES)return;const ui=createAttachmentCard(file);const item={file,ui,status:"queued",cancelled:false};ui.cancel.onclick=()=>cancelQueuedOrActive(item);uploadQueue.push(item)});refreshSendState();processUploadQueue()}
 async function processUploadQueue(){if(isUploading)return;const item=uploadQueue.find(x=>x.status==="queued");if(!item){refreshSendState();return}isUploading=true;item.status="uploading";activeUpload=item;refreshSendState();try{const result=await uploadFileToBackend(item.file,item.ui);if(item.cancelled)throw new Error("UPLOAD_CANCELLED");item.fileId=result.fileId;pendingAttachments.push({fileId:result.fileId,fileName:result.fileName,mimeType:result.mimeType,size:result.size,url:result.url});
+    saveHistoryFile(result,"UPLOAD",zoyaHistoryConversationId,{url:String(result.url||"")});
     // Indexing RAG tidak menahan proses upload.
     indexKnowledgeInBackground(result.fileId,result.fileName);
     item.status="done"}catch(error){item.status=error.message==="UPLOAD_CANCELLED"?"cancelled":"error";if(error.message!=="UPLOAD_CANCELLED")failCard(item.ui,error.message||"Gagal");else removeCard(item.ui)}finally{activeUpload=null;isUploading=false;uploadQueue=uploadQueue.filter(x=>x.status!=="cancelled"&&x.status!=="error");documentInput.value="";imageInput.value="";refreshSendState();processUploadQueue()}}
