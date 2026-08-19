@@ -189,7 +189,7 @@
 /* ZOYA MOBILE VIEWPORT FIX — scoped to small screens */
 @media(max-width:600px){
   .zora{height:var(--zoya-vh,100dvh);min-height:0;max-height:100dvh}
-  .chat{min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior-y:contain;overflow-anchor:auto}
+  .chat{min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior-y:contain;overflow-anchor:auto;touch-action:pan-y}
   .input-area{flex:0 0 auto;position:relative;z-index:5}
   .input-box{min-width:0}
   #question{min-width:0;width:100%;max-height:120px;overflow-y:auto;box-sizing:border-box}
@@ -872,7 +872,7 @@ function getZoyaAuthToken() {
 
 
 
-const MEMORY_KEY="ZORA_AI_MEMORY_V12",MAX_HISTORY_MESSAGES=8,MAX_HISTORY_CHARS=1200,MAX_RETRIES=1,REQUEST_TIMEOUT=20000;
+const MEMORY_KEY="ZORA_AI_MEMORY_V12",MAX_HISTORY_MESSAGES=8,MAX_HISTORY_CHARS=1200,MAX_RETRIES=1,REQUEST_TIMEOUT=60000;
 let conversationHistory=[],lastSubstantiveAssistantText="",isSending=false,recognition=null,isListening=false,voiceBaseText="",voiceCommittedText="",voiceInterimText="";
 const $=id=>document.getElementById(id),questionInput=$("question"),chat=$("chat"),loading=$("loading"),sendButton=$("send"),welcome=$("welcome"),retryStatus=$("retryStatus"),micButton=$("mic"),voiceStatus=$("voiceStatus"),voicePermission=$("voicePermission"),voicePermissionButton=$("voicePermissionButton"),voicePermissionText=$("voicePermissionText"),uploadButton=$("uploadButton"),attachWrap=$("attachWrap"),attachMenu=$("attachMenu"),attachImage=$("attachImage"),attachCamera=$("attachCamera"),attachFile=$("attachFile"),attachVoice=$("attachVoice"),documentInput=$("documentInput"),imageInput=$("imageInput"),cameraInput=$("cameraInput"),uploadAttachments=$("uploadAttachments");
 function userMemoryKey(){const uid=getZoyaUserId();return uid?MEMORY_KEY+"_"+uid:MEMORY_KEY+"_ANONYMOUS"}
@@ -954,7 +954,7 @@ function localSemanticFallback(text,attachments){
   if(/\b(cari|coba cari|search|telusuri|cek di web|di internet|berita|terbaru|terkini|hari ini|harga|review|alamat|website|cuaca|kurs)\b/.test(q) || (/^apa itu\b/.test(q) && q.split(/\s+/).length>=3)) return {success:true,core_version:"local-fallback-v2",normalized_input:q,intent:"WEB_SEARCH",format:"",context_policy:"ALLOW_RELEVANT",memory_policy:"RELEVANT_ONLY",backend_target:"MAIN_CHAT",safe_to_forward:true};
   return {success:true,core_version:"local-fallback-v2",normalized_input:q||raw,intent:"CHAT",format:"",context_policy:ref?"ALLOW_PREVIOUS_RELEVANT":"BLOCK",memory_policy:ref?"RELEVANT_ONLY":"BLOCK",backend_target:"MAIN_CHAT",safe_to_forward:true};
 }
-function askZora(question,history,attachments=[],attachmentOnly=false,route=null){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null;function cleanup(){if(timer)clearTimeout(timer);script.remove();try{delete window[cb]}catch(e){window[cb]=undefined}}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId=getZoyaUserId();if(!currentUserId){reject(new Error("Silakan login dengan Google terlebih dahulu."));return;}const p=new URLSearchParams({q:String(question),history:JSON.stringify(prepareHistory(history)),attachments:JSON.stringify(attachments||[]),attachment_only:attachmentOnly?"1":"0",user_id:currentUserId,callback:cb,_:Date.now()});if(route&&route.intent){p.set("zoya_core","1");p.set("zoya_intent",String(route.intent));p.set("zoya_format",String(route.format||""));p.set("zoya_normalized_input",String(route.normalized_input||question));p.set("context_policy",String(route.context_policy||""));p.set("memory_policy",String(route.memory_policy||""));}script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},REQUEST_TIMEOUT)})}
+function askZora(question,history,attachments=[],attachmentOnly=false,route=null){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null,startedAt=Date.now(),remaining=REQUEST_TIMEOUT,hiddenAt=0;function clearResponseTimer(){if(timer){clearTimeout(timer);timer=null}}function startResponseTimer(){clearResponseTimer();if(done)return;startedAt=Date.now();timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},Math.max(1000,remaining))}function cleanup(){clearResponseTimer();document.removeEventListener("visibilitychange",visibilityHandler);if(script.parentNode)script.parentNode.removeChild(script);try{delete window[cb]}catch(e){window[cb]=undefined}}function visibilityHandler(){if(done)return;if(document.hidden){hiddenAt=Date.now();remaining=Math.max(1000,remaining-(hiddenAt-startedAt));clearResponseTimer();return}startResponseTimer()}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId=getZoyaUserId();if(!currentUserId){reject(new Error("Silakan login dengan Google terlebih dahulu."));return;}const p=new URLSearchParams({q:String(question),history:JSON.stringify(prepareHistory(history)),attachments:JSON.stringify(attachments||[]),attachment_only:attachmentOnly?"1":"0",user_id:currentUserId,callback:cb,_:Date.now()});if(route&&route.intent){p.set("zoya_core","1");p.set("zoya_intent",String(route.intent));p.set("zoya_format",String(route.format||""));p.set("zoya_normalized_input",String(route.normalized_input||question));p.set("context_policy",String(route.context_policy||""));p.set("memory_policy",String(route.memory_policy||""));}script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);document.addEventListener("visibilitychange",visibilityHandler);startResponseTimer()})}
 async function askZoraWithRetry(q,h,attachments=[],attachmentOnly=false,route=null){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments,attachmentOnly,route);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await new Promise(resolve=>setTimeout(resolve,800))}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
 function addUserMessageWithAttachments(text,attachments){
   const m=document.createElement("div");m.className="message user";
@@ -1002,10 +1002,32 @@ function agentJsonpRequest(action,params,timeoutMs){
 
     const cb=agentCallbackName();
     const script=document.createElement("script");
-    let done=false,timer=null;
+    let done=false,timer=null,startedAt=Date.now(),remaining=Number(timeoutMs)||60000;
 
+    function clearRequestTimer(){if(timer){clearTimeout(timer);timer=null}}
+    function startRequestTimer(){
+      clearRequestTimer();
+      if(done)return;
+      startedAt=Date.now();
+      timer=setTimeout(function(){
+        if(done)return;
+        done=true;
+        cleanup();
+        reject(new Error("Backend Agent terlalu lama merespons."));
+      },Math.max(1000,remaining));
+    }
+    function visibilityHandler(){
+      if(done)return;
+      if(document.hidden){
+        remaining=Math.max(1000,remaining-(Date.now()-startedAt));
+        clearRequestTimer();
+      }else{
+        startRequestTimer();
+      }
+    }
     function cleanup(){
-      if(timer)clearTimeout(timer);
+      clearRequestTimer();
+      document.removeEventListener("visibilitychange",visibilityHandler);
       if(script.parentNode)script.parentNode.removeChild(script);
       try{delete window[cb]}catch(e){window[cb]=undefined}
     }
@@ -1038,12 +1060,8 @@ function agentJsonpRequest(action,params,timeoutMs){
     script.async=true;
     document.body.appendChild(script);
 
-    timer=setTimeout(function(){
-      if(done)return;
-      done=true;
-      cleanup();
-      reject(new Error("Backend Agent terlalu lama merespons."));
-    },Number(timeoutMs)||30000);
+    document.addEventListener("visibilitychange",visibilityHandler);
+    startRequestTimer();
   });
 }
 
@@ -1052,7 +1070,7 @@ async function agentAsyncWorkflowRequest(question,history,attachments,onProgress
     q:String(question),
     history:JSON.stringify(prepareHistory(history)),
     attachments:JSON.stringify(attachments||[])
-  },30000);
+  },60000);
 
   const taskId=String(started.taskId||"");
   if(!taskId)throw new Error("Agent tidak memberikan task_id.");
@@ -1084,7 +1102,7 @@ async function agentAsyncWorkflowRequest(question,history,attachments,onProgress
     // Apps Script request open for the entire workflow.
     latest=await agentJsonpRequest("task_step",{
       task_id:taskId
-    },30000);
+    },60000);
 
     if(latest.progress){
       if(typeof onProgress==="function")onProgress(latest);
@@ -2006,22 +2024,29 @@ function arrayBufferToBase64(buffer){
    - Tidak mengubah layout desktop.
    ========================================================= */
 (function setupMobileViewport(){
+  let lastHeight=0;
   const apply=()=>{
     if(!window.visualViewport || window.innerWidth>600) return;
     const vv=window.visualViewport;
-    document.documentElement.style.setProperty("--zoya-vh", Math.max(320, vv.height)+"px");
-    requestAnimationFrame(()=>{
-      if(document.activeElement===questionInput){
+    const h=Math.max(320, vv.height);
+    const heightChanged=Math.abs(h-lastHeight)>8;
+    lastHeight=h;
+    document.documentElement.style.setProperty("--zoya-vh", h+"px");
+    // Hanya scroll composer ketika keyboard/viewport benar-benar berubah.
+    // Jangan menjalankan scrollIntoView pada setiap visualViewport scroll:
+    // itu merebut gesture scroll dari area chat saat keyboard terbuka.
+    if(heightChanged && document.activeElement===questionInput){
+      requestAnimationFrame(()=>{
         try{questionInput.scrollIntoView({block:"nearest",behavior:"auto"});}catch(e){}
-      }
-    });
+      });
+    }
   };
   apply();
   window.addEventListener("resize",apply,{passive:true});
   window.addEventListener("orientationchange",()=>setTimeout(apply,120),{passive:true});
   if(window.visualViewport){
     window.visualViewport.addEventListener("resize",apply,{passive:true});
-    window.visualViewport.addEventListener("scroll",apply,{passive:true});
+    // Sengaja tidak memasang handler visualViewport scroll.
   }
 })();
 
