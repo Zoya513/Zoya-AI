@@ -935,6 +935,15 @@ function showZoyaLoading(message){
 function hideZoyaLoading(){
   if(loading)hideZoyaLoading();
 }
+function finishSendUI(){
+  hideZoyaLoading();
+  if(retryStatus)retryStatus.style.display="none";
+  isSending=false;
+  sendButton.disabled=micButton.disabled=uploadButton.disabled=false;
+  refreshSendState();
+  scrollChatToBottom(true);
+  if(questionInput&&!questionInput.disabled)questionInput.focus();
+}
 function scrollChatToBottom(force){
   if(!chat)return;
   requestAnimationFrame(()=>{
@@ -963,6 +972,7 @@ function addMessage(text,type){
   m.appendChild(b);
   chat.appendChild(m);
   type==="ai"?revealLatestMessage():scrollChatToBottom(true);
+  if(type==="ai") finishSendUI();
 }
 function callbackName(){return"zoraCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2,10)}
 function semanticRoute(input){
@@ -1173,16 +1183,18 @@ async function resumePendingAsyncTask(){
       clearPendingAsyncTask();
       hideZoyaLoading();
       showAgentResult_(r);
+      finishSendUI();
     }else if(r.status==="FAILED"){
       clearPendingAsyncTask();
       hideZoyaLoading();
       addMessage("❌ "+String(r.error||"Tugas ZOYA gagal."),"ai");
+      finishSendUI();
     }else if(r.status==="CANCELLED"){
       clearPendingAsyncTask();
       hideZoyaLoading();
+      finishSendUI();
     }else{
-      loading.textContent="ZOYA masih bekerja di server";
-      loading.style.display="block";
+      hideZoyaLoading();
     }
   }catch(e){
     console.warn("ASYNC TASK RESUME:",e);
@@ -1271,6 +1283,7 @@ async function sendMessage(){
           saveMemory();
         }
         showAgentResult_(started);
+        finishSendUI();
         return;
       }
 
@@ -1300,6 +1313,7 @@ async function sendMessage(){
           saveMemory();
         }
         showAgentResult_(result);
+        finishSendUI();
         return;
       }
 
@@ -1307,10 +1321,12 @@ async function sendMessage(){
         clearPendingAsyncTask();
         hideZoyaLoading();
         addMessage("❌ "+String(result.error||"ZOYA gagal menyelesaikan tugas."),"ai");
+        finishSendUI();
         return;
       }
 
-      showZoyaLoading("ZOYA masih bekerja di server");
+      hideZoyaLoading();
+      finishSendUI();
       return;
 
     }catch(asyncError){
@@ -1336,6 +1352,7 @@ async function sendMessage(){
       conversationHistory.push({role:"user",text:finalQuestion});
       saveMemory();
       addCreationResult(result);
+      finishSendUI();
       return;
     }
 
@@ -1355,6 +1372,7 @@ async function sendMessage(){
       conversationHistory.push({role:"user",text:finalQuestion});
       saveMemory();
       addCreationResult(result);
+      finishSendUI();
       return;
     }
 
