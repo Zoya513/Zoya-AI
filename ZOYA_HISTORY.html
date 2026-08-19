@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZOYA History</title>
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,Arial,sans-serif;
+    background:#fff;
+    color:#111;
+  }
+  .wrap{
+    width:100%;
+    min-height:100vh;
+    padding:18px;
+  }
+  .head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .title{
+    font-size:22px;
+    font-weight:700;
+  }
+  .tabs{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  button{
+    border:1px solid #ddd;
+    background:#fff;
+    border-radius:10px;
+    padding:9px 12px;
+    cursor:pointer;
+    font-size:14px;
+  }
+  button.active{
+    background:#111;
+    color:#fff;
+    border-color:#111;
+  }
+  .search{
+    width:100%;
+    border:1px solid #ddd;
+    border-radius:12px;
+    padding:11px 13px;
+    outline:none;
+    margin-bottom:12px;
+  }
+  .list{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+  }
+  .item{
+    border:1px solid #eee;
+    border-radius:12px;
+    padding:12px;
+    cursor:pointer;
+  }
+  .item:hover{background:#f7f7f7}
+  .item-title{
+    font-weight:600;
+    margin-bottom:5px;
+    word-break:break-word;
+  }
+  .meta{
+    color:#777;
+    font-size:12px;
+  }
+  .empty{
+    color:#777;
+    text-align:center;
+    padding:40px 10px;
+  }
+  .error{
+    background:#fff2f2;
+    color:#a00;
+    padding:10px;
+    border-radius:10px;
+    margin-bottom:10px;
+    display:none;
+  }
+  .loading{
+    color:#777;
+    font-size:13px;
+    padding:10px 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="title">Riwayat</div>
+    <button onclick="refreshCurrent()">↻</button>
+  </div>
+
+  <div class="tabs">
+    <button id="tabChats" class="active" onclick="setTab('chats')">Chat</button>
+    <button id="tabFiles" onclick="setTab('files')">File</button>
+  </div>
+
+  <input
+    id="search"
+    class="search"
+    type="search"
+    placeholder="Cari..."
+    oninput="debouncedSearch()"
+  >
+
+  <div id="error" class="error"></div>
+  <div id="loading" class="loading">Memuat...</div>
+  <div id="list" class="list"></div>
+</div>
+
+<script>
+const HISTORY_BACKEND_URL = "PASTE_HISTORY_BACKEND_URL_HERE";
+
+let USER_ID = "";
+let currentTab = "chats";
+let timer = null;
+
+function request(action, params = {}) {
+  return new Promise((resolve, reject) => {
+    if (!HISTORY_BACKEND_URL ||
+        HISTORY_BACKEND_URL.includes("PASTE_HISTORY")) {
+      reject(new Error("HISTORY_BACKEND_URL belum diisi."));
+      return;
+    }
+
+    const callback =
+      "zoyaHistory_" +
+      Date.now() +
+      "_" +
+      Math.floor(Math.random() * 100000);
+
+    const script = document.createElement("script");
+
+    window[callback] = function(data) {
+      try {
+        delete window[callback];
+        script.remove();
+      } catch (_) {}
+
+      if (data && data.success === false) {
+        reject(new Error(data.error || "Request gagal"));
+      } else {
+        resolve(data);
+      }
+    };
+
+    script.onerror = function() {
+      try {
+        delete window[callback];
+        script.remove();
+      } catch (_) {}
+      reject(new Error("Backend History tidak dapat dihubungi."));
+    };
+
+    const query = new URLSearchParams({
+      action,
+      user_id: USER_ID,
+      callback,
+      ...params
+    });
+
+    script.src = HISTORY_BACKEND_URL + "?" + query.toString();
+    document.body.appendChild(script);
+  });
+}
+
+/*
+ * Parent index.html should respond to:
+ *   zoya-history-request-user
+ *
+ * with:
+ *   { type:"zoya-history-user", userId:"..." }
+ *
+ * This avoids hard-coding the user's account into this HTML.
+ */
+window.addEventListener("message", function(event) {
+  const data = event.data || {};
+
+  if (data.type === "zoya-history-user") {
+    USER_ID = String(data.userId || "").trim();
+
+    if (USER_ID) {
+      refreshCurrent();
+    }
+  }
+});
+
+function requestUserFromParent() {
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(
+      { type:"zoya-history-request-user" },
+      "*"
+    );
+  }
+}
+
+function setTab(tab) {
+  currentTab = tab;
+
+  document.getElementById("tabChats")
+    .classList.toggle("active", tab === "chats");
+
+  document.getElementById("tabFiles")
+    .classList.toggle("active", tab === "files");
+
+  document.getElementById("search").value = "";
+  refreshCurrent();
+}
+
+function debouncedSearch() {
+  clearTimeout(timer);
+  timer = setTimeout(refreshCurrent, 250);
+}
+
+async function refreshCurrent() {
+  hideError();
+
+  if (!USER_ID) {
+    showLoading(false);
+    document.getElementById("list").innerHTML =
+      '<div class="empty">Menunggu akun ZOYA...</div>';
+    requestUserFromParent();
+    return;
+  }
+
+  showLoading(true);
+
+  try {
+    const search =
+      document.getElementById("search").value.trim();
+
+    if (currentTab === "chats") {
+      const data = await request(
+        "conversation_list",
+        {
+          search,
+          limit: "100"
+        }
+      );
+
+      renderChats(data.conversations || []);
+    } else {
+      const data = await request(
+        "file_list",
+        {
+          search,
+          limit: "200"
+        }
+      );
+
+      renderFiles(data.files || []);
+    }
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function renderChats(items) {
+  const list = document.getElementById("list");
+
+  if (!items.length) {
+    list.innerHTML =
+      '<div class="empty">Belum ada percakapan.</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(function(item) {
+    return `
+      <div class="item"
+           onclick="openConversation('${escapeAttr(item.conversationId)}')">
+        <div class="item-title">
+          ${escapeHtml(item.title || "Percakapan")}
+        </div>
+        <div class="meta">
+          ${formatDate(item.updatedAt)}
+          · ${Number(item.messageCount || 0)} pesan
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderFiles(items) {
+  const list = document.getElementById("list");
+
+  if (!items.length) {
+    list.innerHTML =
+      '<div class="empty">Belum ada file.</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(function(item) {
+    return `
+      <div class="item"
+           onclick="openFile('${escapeAttr(item.fileId)}')">
+        <div class="item-title">
+          ${fileIcon(item.mimeType)}
+          ${escapeHtml(item.fileName || "File")}
+        </div>
+        <div class="meta">
+          ${formatDate(item.updatedAt)}
+          · ${escapeHtml(item.source || "UPLOAD")}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function openConversation(id) {
+  try {
+    const data = await request(
+      "conversation_get",
+      { conversation_id:id }
+    );
+
+    // Parent index.html can render the conversation.
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type:"zoya-history-open-conversation",
+        conversation:data.conversation,
+        messages:data.messages || []
+      }, "*");
+    } else {
+      alert(
+        "Percakapan: " +
+        (data.conversation.title || "") +
+        "\nPesan: " +
+        (data.messages || []).length
+      );
+    }
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function openFile(fileId) {
+  try {
+    const data = await request(
+      "file_get",
+      { file_id:fileId }
+    );
+
+    const file = data.file;
+
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type:"zoya-history-open-file",
+        file:file
+      }, "*");
+    } else {
+      alert(
+        "File: " +
+        (file.fileName || "") +
+        "\nFile ID: " +
+        (file.fileId || "")
+      );
+    }
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+function fileIcon(mime) {
+  mime = String(mime || "").toLowerCase();
+
+  if (mime.includes("pdf")) return "📕";
+  if (mime.includes("image")) return "🖼️";
+  if (mime.includes("spreadsheet") || mime.includes("excel")) return "📊";
+  if (mime.includes("word") || mime.includes("document")) return "📄";
+  if (mime.includes("presentation") || mime.includes("powerpoint")) return "📑";
+
+  return "📎";
+}
+
+function formatDate(value) {
+  if (!value) return "";
+
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+
+  return d.toLocaleString("id-ID", {
+    day:"2-digit",
+    month:"short",
+    year:"numeric",
+    hour:"2-digit",
+    minute:"2-digit"
+  });
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+function escapeAttr(value) {
+  return String(value || "")
+    .replace(/\\/g,"\\\\")
+    .replace(/'/g,"\\'");
+}
+
+function showLoading(show) {
+  document.getElementById("loading").style.display =
+    show ? "block" : "none";
+}
+
+function showError(message) {
+  const el = document.getElementById("error");
+  el.textContent = message || "Terjadi kesalahan.";
+  el.style.display = "block";
+}
+
+function hideError() {
+  document.getElementById("error").style.display = "none";
+}
+
+requestUserFromParent();
+</script>
+</body>
+</html>
