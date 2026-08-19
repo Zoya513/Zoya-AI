@@ -1,0 +1,92 @@
+name: Fix ZOYA History runtime
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch History iframe loading
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path("index.html")
+          text = path.read_text(encoding="utf-8")
+
+          pattern = re.compile(
+              r'async function loadHistoryUI\(\)\{.*?\n\}\nfunction sendHistoryUserToFrame',
+              re.S,
+          )
+
+          replacement = '''async function loadHistoryUI(){
+  const frame=document.getElementById("zoyaHistoryFrame"),loadingEl=document.getElementById("zoyaHistoryLoading");
+  if(!frame)return Promise.resolve();
+  if(zoyaHistoryFrameLoadingPromise)return zoyaHistoryFrameLoadingPromise;
+
+  zoyaHistoryFrameLoadingPromise=new Promise(function(resolve,reject){
+    let finished=false;
+
+    function finishOk(){
+      if(finished)return;
+      finished=true;
+      if(loadingEl)loadingEl.classList.add("hidden");
+      sendHistoryUserToFrame();
+      resolve();
+    }
+
+    function finishError(){
+      if(finished)return;
+      finished=true;
+      if(loadingEl){
+        loadingEl.textContent="Gagal memuat Riwayat. Coba lagi.";
+        loadingEl.classList.remove("hidden");
+      }
+      reject(new Error("ZOYA_HISTORY.html gagal dimuat dari GitHub."));
+    }
+
+    frame.onload=finishOk;
+    frame.onerror=finishError;
+    frame.src=HISTORY_UI_SOURCE_URL+"?v="+Date.now();
+  }).finally(function(){
+    zoyaHistoryFrameLoadingPromise=null;
+  });
+
+  return zoyaHistoryFrameLoadingPromise;
+}
+function sendHistoryUserToFrame'''
+
+          new_text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit("History loader block not found; aborting without changes.")
+
+          path.write_text(new_text, encoding="utf-8")
+          print("History runtime loader patched.")
+
+      - name: Validate and commit
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          text=Path('index.html').read_text(encoding='utf-8')
+          script_blocks=re.findall(r'<script(?: [^>]*)?>(.*?)</script>', text, flags=re.S|re.I)
+          Path('/tmp/index-script.js').write_text('\n\n'.join(script_blocks), encoding='utf-8')
+          PY
+          node --check /tmp/index-script.js
+          rm -f .github/workflows/fix-history-runtime.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/fix-history-runtime.yml
+          git commit -m "Fix ZOYA History iframe integration"
+          git push
