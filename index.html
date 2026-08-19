@@ -933,7 +933,7 @@ function showZoyaLoading(message){
   loading.style.display="block";
 }
 function hideZoyaLoading(){
-  if(loading)hideZoyaLoading();
+  if(loading) loading.style.display="none";
 }
 function finishSendUI(){
   hideZoyaLoading();
@@ -942,7 +942,6 @@ function finishSendUI(){
   sendButton.disabled=micButton.disabled=uploadButton.disabled=false;
   refreshSendState();
   scrollChatToBottom(true);
-  if(questionInput&&!questionInput.disabled)questionInput.focus();
 }
 function scrollChatToBottom(force){
   if(!chat)return;
@@ -1398,13 +1397,7 @@ async function sendMessage(){
     console.error("ZOYA SEND ERROR:",e);
     addMessage("❌ ZORA belum menerima respons dari server.\n\n"+String(e&&e.message?e.message:e),"ai");
   }finally{
-    hideZoyaLoading();
-    retryStatus.style.display="none";
-    isSending=false;
-    sendButton.disabled=micButton.disabled=uploadButton.disabled=false;
-    refreshSendState();
-    scrollChatToBottom(true);
-    questionInput.focus();
+    finishSendUI();
   }
 }
 
