@@ -137,6 +137,11 @@
 .zoya-history-close{width:34px;height:34px;border:0;border-radius:10px;background:transparent;font-size:23px;line-height:1;cursor:pointer}
 .zoya-history-close:hover{background:#f3f3f3}
 #zoyaHistoryFrame{width:100%;flex:1 1 auto;min-height:0;border:0;background:#fff}
+.zoya-history-nav{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid #eee;background:#fff}
+.zoya-history-nav-btn{flex:1;border:1px solid #e5e5e5;border-radius:10px;background:#fff;color:#202123;height:36px;font-size:13px;font-weight:600;cursor:pointer;transition:.18s ease}
+.zoya-history-nav-btn:hover{background:#f5f5f5}
+.zoya-history-nav-btn.active{background:#111;color:#fff;border-color:#111}
+.zoya-history-nav-btn:disabled{opacity:.5;cursor:not-allowed}
 .zoya-history-loading{position:absolute;inset:58px 0 0;display:flex;align-items:center;justify-content:center;color:#777;font-size:13px;background:#fff;z-index:2}
 .zoya-history-loading.hidden{display:none}
 @media(max-width:600px){.zoya-history-drawer{width:100%}}
@@ -272,6 +277,10 @@
     <div class="zoya-history-head">
       <div class="zoya-history-title">Riwayat</div>
       <button type="button" class="zoya-history-close" id="zoyaHistoryClose" aria-label="Tutup riwayat">×</button>
+    </div>
+    <div class="zoya-history-nav" role="navigation" aria-label="Navigasi ZOYA">
+      <button type="button" class="zoya-history-nav-btn active" id="zoyaDrawerHistoryBtn" onclick="selectZoyaDrawerHistory()">Riwayat</button>
+      <button type="button" class="zoya-history-nav-btn" id="zoyaDrawerOsinBtn" onclick="openZoyaOsin()">OSIN</button>
     </div>
     <div class="zoya-history-loading" id="zoyaHistoryLoading">Memuat riwayat...</div>
     <iframe id="zoyaHistoryFrame" title="Riwayat ZOYA"></iframe>
@@ -645,6 +654,27 @@ function closeZoyaHistory(){
   const overlay=document.getElementById("zoyaHistoryOverlay");
   if(!overlay)return;
   overlay.classList.remove("active");overlay.setAttribute("aria-hidden","true");
+}
+
+function selectZoyaDrawerHistory(){
+  const historyBtn=document.getElementById("zoyaDrawerHistoryBtn");
+  const osinBtn=document.getElementById("zoyaDrawerOsinBtn");
+  if(historyBtn)historyBtn.classList.add("active");
+  if(osinBtn)osinBtn.classList.remove("active");
+  const title=document.querySelector(".zoya-history-title");
+  if(title)title.textContent="Riwayat";
+  const frame=document.getElementById("zoyaHistoryFrame");
+  if(frame)frame.style.display="block";
+}
+
+function openZoyaOsin(){
+  if(!getZoyaUserId()){
+    showZoyaAuthError("Silakan login dengan Google terlebih dahulu.");
+    if(zoyaAuthOverlay)zoyaAuthOverlay.style.display="flex";
+    return;
+  }
+  const target=new URL("osin.html",window.location.href).href;
+  window.location.href=target;
 }
 window.addEventListener("message",function(event){
   const data=event.data||{},frame=document.getElementById("zoyaHistoryFrame");
