@@ -66,7 +66,7 @@ h1{font-size:25px;margin:0 0 8px}.sub{color:#777;font-size:14px;line-height:1.5;
 
 <script>
 const OSIN_BACKEND_URL="https://script.google.com/macros/s/AKfycbxKwjNmcJTZherQem5fECFHsGgNwH0QJQPqf1Zry1USALlif3iRBSy7i3wlGqWeXV0/exec";
-const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V9";
+const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V11";
 const ZOYA_AUTH_STORAGE_KEY="ZOYA_GOOGLE_SESSION_V1";
 let osinSession=null;
 let recognition=null;
@@ -116,7 +116,7 @@ async function submitGate(event){
   event.preventDefault();if(!ensureZoyaLogin())return;
   const password=document.getElementById("osinPassword").value;const btn=document.getElementById("unlockButton");
   showError("gateError","");btn.disabled=true;btn.textContent="Memverifikasi...";
-  try{const data=await verifyOsinPassword(password);saveOsinSession(data);document.getElementById("osinPassword").value="";unlockUI();refreshIndexStatus();}
+  try{const data=await verifyOsinPassword(password);saveOsinSession(data);document.getElementById("osinPassword").value="";unlockUI();setTimeout(()=>refreshIndexStatus(),0);}
   catch(e){showError("gateError",e.message||"Password OSIN salah.");}
   finally{btn.disabled=false;btn.textContent="Masuk"}
 }
@@ -163,8 +163,8 @@ async function refreshIndexStatus(){
         const q=pendingAutoQuery;pendingAutoQuery="";document.getElementById("query").value=q;setTimeout(()=>runSearch(),200);
       }
     }else if(data.status==="BUILDING" || (data.status==="READY" && Number(stats.indexedFiles||0)<=0)){
-      st.textContent=prefix+"Content Index sedang dibangun. File terindeks: "+String(stats.indexedFiles||0)+" | File dipindai: "+String(stats.files||0)+" | Folder: "+String(stats.folders||0)+".";
-      try{await pumpIndex();}catch(e){}
+      st.textContent=prefix+"Content Index berjalan di background. File terindeks: "+String(stats.indexedFiles||0)+" | File dipindai: "+String(stats.files||0)+" | Folder: "+String(stats.folders||0)+". Pencarian tetap bisa digunakan.";
+      pumpIndex().catch(()=>{});
       indexPumpTimer=setTimeout(refreshIndexStatus,4000);
     }else{
       st.textContent=prefix+"Content Index belum tersedia. Memulai indexing database...";
@@ -175,19 +175,30 @@ async function refreshIndexStatus(){
 }
 
 async function runSearch(){
-  if(!ensureZoyaLogin())return;const q=document.getElementById("query").value.trim();if(!q)return;
-  const btn=document.getElementById("searchButton");const status=document.getElementById("searchStatus");showError("gateError","");btn.disabled=true;status.textContent="Mencari...";
-  try{const data=await searchOsin(q);renderResults(data.results||[]);status.textContent=String(data.message||((data.results||[]).length+" hasil ditemukan."));if(data.diagnostics&&data.diagnostics.truncated){pendingAutoQuery=q;}refreshIndexStatus();}
-  catch(e){
+  if(!ensureZoyaLogin())return;
+  const q=document.getElementById("query").value.trim();
+  if(!q)return;
+  const btn=document.getElementById("searchButton");
+  const status=document.getElementById("searchStatus");
+  showError("gateError","");
+  btn.disabled=true;
+  status.textContent="Mencari dari index yang tersedia...";
+  try{
+    const data=await searchOsin(q);
+    renderResults(data.results||[]);
+    status.textContent=String(data.message||((data.results||[]).length+" hasil ditemukan."));
+    setTimeout(()=>refreshIndexStatus(),0);
+  }catch(e){
     status.textContent="";
-    document.getElementById("results").innerHTML='<div class="empty">'+escapeHtml(e.message||"Pencarian gagal.")+'</div>';
+    document.getElementById("results").innerHTML='<div class="empty">'+escapeHtml(e.message||"Pencarian gagal.")+"</div>";
     if(String(e.message||"").toLowerCase().includes("sesi osin")){
       clearOsinSession();
       document.getElementById("searchPage").classList.add("hidden");
       document.getElementById("gate").classList.remove("hidden");
     }
+  }finally{
+    btn.disabled=false;
   }
-  finally{btn.disabled=false}
 }
 function escapeHtml(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;")}
 function setupVoice(){
