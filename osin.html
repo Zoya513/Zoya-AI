@@ -57,7 +57,7 @@ h1{font-size:25px;margin:0 0 8px}.sub{color:#777;font-size:14px;line-height:1.5;
           <button id="voiceButton" class="mic" type="button" title="Voice to text">🎤</button>
           <button id="searchButton" class="primary" type="button">Cari</button>
         </div>
-        <div id="searchStatus" class="statusline"></div>
+        <div id="searchStatus" class="statusline"></div><div id="indexStatus" class="statusline"></div>
         <div id="results" class="results"></div>
       </div>
     </section>
@@ -66,7 +66,7 @@ h1{font-size:25px;margin:0 0 8px}.sub{color:#777;font-size:14px;line-height:1.5;
 
 <script>
 const OSIN_BACKEND_URL="https://script.google.com/macros/s/AKfycbxKwjNmcJTZherQem5fECFHsGgNwH0QJQPqf1Zry1USALlif3iRBSy7i3wlGqWeXV0/exec";
-const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V2";
+const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V3";
 const ZOYA_AUTH_STORAGE_KEY="ZOYA_GOOGLE_SESSION_V1";
 let osinSession=null;
 let recognition=null;
@@ -116,7 +116,7 @@ async function submitGate(event){
   event.preventDefault();if(!ensureZoyaLogin())return;
   const password=document.getElementById("osinPassword").value;const btn=document.getElementById("unlockButton");
   showError("gateError","");btn.disabled=true;btn.textContent="Memverifikasi...";
-  try{const data=await verifyOsinPassword(password);saveOsinSession(data);document.getElementById("osinPassword").value="";unlockUI();}
+  try{const data=await verifyOsinPassword(password);saveOsinSession(data);document.getElementById("osinPassword").value="";unlockUI();refreshIndexStatus();}
   catch(e){showError("gateError",e.message||"Password OSIN salah.");}
   finally{btn.disabled=false;btn.textContent="Masuk"}
 }
@@ -129,10 +129,35 @@ function renderResults(items){
     return '<div class="result"><div class="result-title">Hasil '+(i+1)+'</div>'+rows+'<div class="field"><div class="label">Sumber</div><div class="value">'+escapeHtml(item.source||"")+'</div></div></div>';
   }).join("");
 }
+async function getIndexStatus(){
+  if(!osinSession||!osinSession.sessionToken)return null;
+  return jsonp("index_status",{session_token:String(osinSession.sessionToken)},15000);
+}
+async function startIndexBuild(){
+  if(!osinSession||!osinSession.sessionToken)return null;
+  return jsonp("index_build",{session_token:String(osinSession.sessionToken)},30000);
+}
+async function refreshIndexStatus(){
+  try{
+    const data=await getIndexStatus();
+    if(!data)return;
+    const st=document.getElementById("indexStatus");
+    const stats=data.stats||{};
+    if(data.status==="READY"){
+      st.textContent="Content Index siap. File terindeks: "+String(stats.indexedFiles||0)+".";
+    }else if(data.status==="BUILDING"){
+      st.textContent="Content Index sedang dibangun. File terindeks: "+String(stats.indexedFiles||0)+".";
+      setTimeout(refreshIndexStatus,20000);
+    }else{
+      st.textContent="Content Index belum tersedia. Pencarian akan memakai pemindaian langsung sementara.";
+    }
+  }catch(e){}
+}
+
 async function runSearch(){
   if(!ensureZoyaLogin())return;const q=document.getElementById("query").value.trim();if(!q)return;
   const btn=document.getElementById("searchButton");const status=document.getElementById("searchStatus");showError("gateError","");btn.disabled=true;status.textContent="Mencari...";
-  try{const data=await searchOsin(q);renderResults(data.results||[]);status.textContent=String(data.message||((data.results||[]).length+" hasil ditemukan."));}
+  try{const data=await searchOsin(q);renderResults(data.results||[]);status.textContent=String(data.message||((data.results||[]).length+" hasil ditemukan."));refreshIndexStatus();}
   catch(e){
     status.textContent="";
     document.getElementById("results").innerHTML='<div class="empty">'+escapeHtml(e.message||"Pencarian gagal.")+'</div>';
@@ -162,6 +187,7 @@ async function restoreOsinSession(){
   try{
     await validateOsinSession();
     unlockUI();
+    refreshIndexStatus();
   }catch(_){
     clearOsinSession();
   }
