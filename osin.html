@@ -149,7 +149,11 @@ async function refreshIndexStatus(){
       st.textContent="Content Index sedang dibangun. File terindeks: "+String(stats.indexedFiles||0)+".";
       setTimeout(refreshIndexStatus,20000);
     }else{
-      st.textContent="Content Index belum tersedia. Pencarian akan memakai pemindaian langsung sementara.";
+      st.textContent="Content Index belum tersedia. Memulai indexing database...";
+      try{
+        await startIndexBuild();
+        setTimeout(refreshIndexStatus,8000);
+      }catch(e){}
     }
   }catch(e){}
 }
