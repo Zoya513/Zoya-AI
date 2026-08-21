@@ -66,7 +66,7 @@ h1{font-size:25px;margin:0 0 8px}.sub{color:#777;font-size:14px;line-height:1.5;
 
 <script>
 const OSIN_BACKEND_URL="https://script.google.com/macros/s/AKfycbxKwjNmcJTZherQem5fECFHsGgNwH0QJQPqf1Zry1USALlif3iRBSy7i3wlGqWeXV0/exec";
-const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V3";
+const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V6";
 const ZOYA_AUTH_STORAGE_KEY="ZOYA_GOOGLE_SESSION_V1";
 let osinSession=null;
 let recognition=null;
@@ -133,6 +133,10 @@ async function getIndexStatus(){
   if(!osinSession||!osinSession.sessionToken)return null;
   return jsonp("index_status",{session_token:String(osinSession.sessionToken)},15000);
 }
+async function getExternalSources(){
+  if(!osinSession||!osinSession.sessionToken)return null;
+  return jsonp("external_sources",{session_token:String(osinSession.sessionToken)},20000);
+}
 async function startIndexBuild(){
   if(!osinSession||!osinSession.sessionToken)return null;
   return jsonp("index_build",{session_token:String(osinSession.sessionToken)},30000);
@@ -143,13 +147,16 @@ async function refreshIndexStatus(){
     if(!data)return;
     const st=document.getElementById("indexStatus");
     const stats=data.stats||{};
+    const driveCount=Array.isArray(data.databaseSources)?data.databaseSources.length:0;
+    const apiCount=Array.isArray(data.externalApiSources)?data.externalApiSources.length:0;
+    const prefix="Sumber: "+driveCount+" Google Drive + "+apiCount+" External API. ";
     if(data.status==="READY"){
-      st.textContent="Content Index siap. File terindeks: "+String(stats.indexedFiles||0)+".";
+      st.textContent=prefix+"Content Index siap. File terindeks: "+String(stats.indexedFiles||0)+".";
     }else if(data.status==="BUILDING"){
-      st.textContent="Content Index sedang dibangun. File terindeks: "+String(stats.indexedFiles||0)+".";
+      st.textContent=prefix+"Content Index sedang dibangun. File terindeks: "+String(stats.indexedFiles||0)+".";
       setTimeout(refreshIndexStatus,20000);
     }else{
-      st.textContent="Content Index belum tersedia. Memulai indexing database...";
+      st.textContent=prefix+"Content Index belum tersedia. Memulai indexing database...";
       try{
         await startIndexBuild();
         setTimeout(refreshIndexStatus,8000);
