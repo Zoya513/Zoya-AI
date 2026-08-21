@@ -66,7 +66,7 @@ h1{font-size:25px;margin:0 0 8px}.sub{color:#777;font-size:14px;line-height:1.5;
 
 <script>
 const OSIN_BACKEND_URL="https://script.google.com/macros/s/AKfycbxKwjNmcJTZherQem5fECFHsGgNwH0QJQPqf1Zry1USALlif3iRBSy7i3wlGqWeXV0/exec";
-const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V1";
+const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V2";
 const ZOYA_AUTH_STORAGE_KEY="ZOYA_GOOGLE_SESSION_V1";
 let osinSession=null;
 let recognition=null;
@@ -102,6 +102,11 @@ function jsonp(action,params,timeoutMs){
 async function verifyOsinPassword(password){
   return jsonp("osin_auth",{password:String(password||"")},15000);
 }
+async function validateOsinSession(){
+  if(!osinSession||!osinSession.sessionToken)throw new Error("Sesi OSIN tidak valid.");
+  return jsonp("validate_session",{session_token:String(osinSession.sessionToken)},15000);
+}
+
 async function searchOsin(query){
   if(!osinSession||!osinSession.sessionToken)throw new Error("Sesi OSIN tidak valid.");
   return jsonp("search",{query:String(query||""),session_token:String(osinSession.sessionToken)},30000);
@@ -128,7 +133,15 @@ async function runSearch(){
   if(!ensureZoyaLogin())return;const q=document.getElementById("query").value.trim();if(!q)return;
   const btn=document.getElementById("searchButton");const status=document.getElementById("searchStatus");showError("gateError","");btn.disabled=true;status.textContent="Mencari...";
   try{const data=await searchOsin(q);renderResults(data.results||[]);status.textContent=String(data.message||((data.results||[]).length+" hasil ditemukan."));}
-  catch(e){status.textContent="";document.getElementById("results").innerHTML='<div class="empty">'+escapeHtml(e.message||"Pencarian gagal.")+'</div>';}
+  catch(e){
+    status.textContent="";
+    document.getElementById("results").innerHTML='<div class="empty">'+escapeHtml(e.message||"Pencarian gagal.")+'</div>';
+    if(String(e.message||"").toLowerCase().includes("sesi osin")){
+      clearOsinSession();
+      document.getElementById("searchPage").classList.add("hidden");
+      document.getElementById("gate").classList.remove("hidden");
+    }
+  }
   finally{btn.disabled=false}
 }
 function escapeHtml(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;")}
@@ -141,7 +154,18 @@ function setupVoice(){
   recognition.onresult=(e)=>{const text=e.results&&e.results[0]&&e.results[0][0]?e.results[0][0].transcript:"";if(text)document.getElementById("query").value=text.trim()};
 }
 function toggleVoice(){if(!recognition){alert("Browser ini belum mendukung Voice to Text OSIN.");return}try{if(isListening)recognition.stop();else recognition.start()}catch(_){} }
-function restoreOsinSession(){if(!ensureZoyaLogin())return;const d=loadOsinSession();if(d&&d.authenticated===true){osinSession=d;unlockUI()}}
+async function restoreOsinSession(){
+  if(!ensureZoyaLogin())return;
+  const d=loadOsinSession();
+  if(!d||d.authenticated!==true||!d.sessionToken)return;
+  osinSession=d;
+  try{
+    await validateOsinSession();
+    unlockUI();
+  }catch(_){
+    clearOsinSession();
+  }
+}
 
 document.getElementById("gateForm").addEventListener("submit",submitGate);
 document.getElementById("searchButton").addEventListener("click",runSearch);
