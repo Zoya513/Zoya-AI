@@ -1251,7 +1251,27 @@ function localSemanticFallback(text,attachments){
   return {success:true,core_version:"local-fallback-v2",normalized_input:q||raw,intent:"CHAT",format:"",context_policy:ref?"ALLOW_PREVIOUS_RELEVANT":"BLOCK",memory_policy:ref?"RELEVANT_ONLY":"BLOCK",backend_target:"MAIN_CHAT",safe_to_forward:true};
 }
 function askZora(question,history,attachments=[],attachmentOnly=false,route=null){return new Promise((resolve,reject)=>{const cb=callbackName(),script=document.createElement("script");let done=false,timer=null,startedAt=Date.now(),remaining=REQUEST_TIMEOUT,hiddenAt=0;function clearResponseTimer(){if(timer){clearTimeout(timer);timer=null}}function startResponseTimer(){clearResponseTimer();if(done)return;startedAt=Date.now();timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error("Response ZORA terlalu lama."))},Math.max(1000,remaining))}function cleanup(){clearResponseTimer();document.removeEventListener("visibilitychange",visibilityHandler);if(script.parentNode)script.parentNode.removeChild(script);try{delete window[cb]}catch(e){window[cb]=undefined}}function visibilityHandler(){if(done)return;if(document.hidden){hiddenAt=Date.now();remaining=Math.max(1000,remaining-(hiddenAt-startedAt));clearResponseTimer();return}startResponseTimer()}window[cb]=data=>{if(done)return;done=true;cleanup();if(!data||data.success!==true){reject(new Error(data&&data.error?String(data.error):"Backend ZORA tidak memberikan jawaban."));return}resolve(data)};script.onerror=()=>{if(done)return;done=true;cleanup();reject(new Error("Browser tidak menerima response dari Google Apps Script."))};const currentUserId=getZoyaUserId();if(!currentUserId){reject(new Error("Silakan login dengan Google terlebih dahulu."));return;}const p=new URLSearchParams({q:String(question),history:JSON.stringify(prepareHistory(history)),attachments:JSON.stringify(attachments||[]),attachment_only:attachmentOnly?"1":"0",user_id:currentUserId,callback:cb,_:Date.now()});if(route&&route.intent){p.set("zoya_core","1");p.set("zoya_intent",String(route.intent));p.set("zoya_format",String(route.format||""));p.set("zoya_normalized_input",String(route.normalized_input||question));p.set("context_policy",String(route.context_policy||""));p.set("memory_policy",String(route.memory_policy||""));}script.src=BACKEND_URL+"?"+p.toString();script.async=true;document.body.appendChild(script);document.addEventListener("visibilitychange",visibilityHandler);startResponseTimer()})}
-async function askZoraWithRetry(q,h,attachments=[],attachmentOnly=false,route=null){let last;for(let i=1;i<=MAX_RETRIES;i++){try{if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`}const r=await askZora(q,h,attachments,attachmentOnly,route);retryStatus.style.display="none";return r}catch(e){last=e;if(i<MAX_RETRIES)await new Promise(resolve=>setTimeout(resolve,800))}}retryStatus.style.display="none";throw last||new Error("ZORA gagal memberikan response.")}
+function isNonRetryableZoraError_(error){
+  const message=String(error&&error.message||error||"").toLowerCase();
+  return /429|quota|resource[_ -]?exhausted|rate.?limit|401|403|400|invalid|gemini.*quota/.test(message);
+}
+async function askZoraWithRetry(q,h,attachments=[],attachmentOnly=false,route=null){
+  let last;
+  for(let i=1;i<=MAX_RETRIES;i++){
+    try{
+      if(i>1){retryStatus.style.display="block";retryStatus.textContent=`Mencoba menghubungkan kembali (${i}/${MAX_RETRIES})...`;}
+      const r=await askZora(q,h,attachments,attachmentOnly,route);
+      retryStatus.style.display="none";
+      return r;
+    }catch(e){
+      last=e;
+      if(isNonRetryableZoraError_(e))break;
+      if(i<MAX_RETRIES)await new Promise(resolve=>setTimeout(resolve,800));
+    }
+  }
+  retryStatus.style.display="none";
+  throw last||new Error("ZORA gagal memberikan response.");
+}
 function addUserMessageWithAttachments(text,attachments){
   const m=document.createElement("div");m.className="message user";
   const wrap=document.createElement("div");wrap.className="bubble";wrap.textContent=text;
@@ -1642,6 +1662,7 @@ async function sendMessage(){
     refreshSendState();
     if(window.innerWidth>600)questionInput.focus();
     else scrollComposerIntoView();
+    processKnowledgeQueueWhenIdle_();
   }
 }
 
@@ -2041,7 +2062,7 @@ let pendingAttachments=[];
 
 function fileIcon(file){const ext=file.name.toLowerCase().split(".").pop();if(["jpg","jpeg","png","webp"].includes(ext))return"🖼️";if(ext==="pdf")return"📄";if(["xls","xlsx","csv"].includes(ext))return"📊";if(["doc","docx"].includes(ext))return"📝";return"📎"}
 function createAttachmentCard(file){const card=document.createElement("div");card.className="upload-attachment";card.innerHTML=`<div class="upload-file-icon">${fileIcon(file)}</div><div class="upload-file-info"><div class="upload-file-name"></div><div class="upload-file-state">Menunggu...</div></div><div class="upload-file-spinner"></div><div class="upload-file-check">✓</div><button class="upload-file-cancel" type="button" aria-label="Batalkan upload" title="Batalkan">×</button>`;card.querySelector(".upload-file-name").textContent=file.name;uploadAttachments.appendChild(card);return{card,state:card.querySelector(".upload-file-state"),spinner:card.querySelector(".upload-file-spinner"),check:card.querySelector(".upload-file-check"),cancel:card.querySelector(".upload-file-cancel")}}
-function setCardProgress(ui,percent){ui.card.classList.add("active");ui.state.textContent=percent>=96?"Menyiapkan file...":"Mengupload..."}
+function setCardProgress(ui,percent){ui.card.classList.add("active");ui.state.textContent=percent>=96?"Menyelesaikan upload...":"Mengupload..."}
 function finishCard(ui){ui.spinner.classList.add("done");ui.check.classList.add("active");ui.state.textContent="Siap • klik × untuk melepas";ui.cancel.style.display="flex";ui.cancel.disabled=false;ui.card.classList.add("done")}
 function failCard(ui,msg){ui.spinner.classList.add("done");ui.state.textContent=msg||"Gagal";ui.card.classList.add("error")}
 function removeCard(ui){if(ui&&ui.card&&ui.card.parentNode)ui.card.parentNode.removeChild(ui.card)}
@@ -2054,83 +2075,99 @@ function attachmentMetadata(){return pendingAttachments.map(x=>({fileId:x.fileId
 // Upload tetap dianggap selesai untuk user. Indexing berjalan
 // di background agar tidak memperlambat upload dan tidak
 // mengubah desain composer.
+let zoyaKnowledgeQueue=[];
+let zoyaKnowledgeWorkerRunning=false;
 function indexKnowledgeInBackground(fileId,fileName){
   if(!fileId)return;
   if(!hasIntelligenceBackend()){
     console.warn("ZOYA KNOWLEDGE INDEX: Backend Intelligence belum dikonfigurasi.");
     return;
   }
-  intelligenceJsonpRequest("knowledge_index",{
-    fileId:String(fileId),
-    fileName:String(fileName||"")
-  },120000).then(function(result){
-    console.log("ZOYA KNOWLEDGE INDEXED:",result);
-  }).catch(function(error){
-    console.warn("ZOYA KNOWLEDGE INDEX GAGAL:",error);
-  });
+  zoyaKnowledgeQueue.push({fileId:String(fileId),fileName:String(fileName||"")});
+  processKnowledgeQueueWhenIdle_();
+}
+async function processKnowledgeQueueWhenIdle_(){
+  if(zoyaKnowledgeWorkerRunning||!zoyaKnowledgeQueue.length)return;
+  if(isSending||isUploading||uploadQueue.some(function(x){return x.status==="uploading"||x.status==="queued";}))return;
+  zoyaKnowledgeWorkerRunning=true;
+  try{
+    while(zoyaKnowledgeQueue.length){
+      if(isSending||isUploading)break;
+      const item=zoyaKnowledgeQueue.shift();
+      try{
+        const result=await intelligenceJsonpRequest("knowledge_index",{fileId:item.fileId,fileName:item.fileName},120000);
+        console.log("ZOYA KNOWLEDGE INDEXED:",result);
+      }catch(error){console.warn("ZOYA KNOWLEDGE INDEX GAGAL:",error);}
+    }
+  }finally{zoyaKnowledgeWorkerRunning=false;}
 }
 function refreshSendState(){const busy=isSending||isUploading||uploadQueue.some(x=>x.status==="queued");sendButton.disabled=busy;micButton.disabled=busy;uploadButton.disabled=isSending}
 
-function uploadJsonp(params, timeoutMs){
+function uploadRequest(params, timeoutMs){
   return new Promise(function(resolve,reject){
-    const cb="zoraUploadCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2,10);
-    const script=document.createElement("script");
-    let done=false;
-    let timer=null;
+    const timeoutValue=Number(timeoutMs)||60000;
+    const controller=window.AbortController?new AbortController():null;
+    let finished=false;
+    const timer=setTimeout(function(){
+      if(finished)return;
+      finished=true;
+      if(controller){try{controller.abort();}catch(e){}}
+      reject(new Error("Respons upload dari Google Apps Script terlalu lama."));
+    },timeoutValue);
 
-    function cleanup(){
-      if(timer) clearTimeout(timer);
-      if(script.parentNode) script.parentNode.removeChild(script);
-      try{ delete window[cb]; }catch(e){ window[cb]=undefined; }
-    }
-
-    window[cb]=function(data){
-      if(done) return;
-      done=true;
-      cleanup();
-
-      if(!data || data.success!==true){
-        reject(new Error(
-          data && data.error
-            ? String(data.error)
-            : "Google Apps Script tidak memberikan respons upload yang valid."
-        ));
-        return;
-      }
-
-      resolve(data);
-    };
-
-    script.onerror=function(){
-      if(done) return;
-      done=true;
-      cleanup();
-      reject(new Error("Browser tidak menerima respons upload dari Google Apps Script."));
-    };
-
-    const query=new URLSearchParams();
+    const body=new URLSearchParams();
     Object.keys(params||{}).forEach(function(key){
       const value=params[key];
-      if(value!==undefined && value!==null){
-        query.set(key,String(value));
+      if(value!==undefined&&value!==null)body.set(key,String(value));
+    });
+
+    fetch(BACKEND_URL,{
+      method:"POST",
+      mode:"cors",
+      credentials:"omit",
+      redirect:"follow",
+      headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},
+      body:body.toString(),
+      signal:controller?controller.signal:undefined,
+      cache:"no-store"
+    }).then(function(response){
+      if(!response.ok)throw new Error("Upload server HTTP "+response.status+".");
+      return response.text();
+    }).then(function(text){
+      if(finished)return;
+      let data;
+      try{data=JSON.parse(text);}catch(e){throw new Error("Respons upload dari Google Apps Script tidak valid.");}
+      if(!data||data.success!==true)throw new Error(data&&data.error?String(data.error):"Google Apps Script menolak proses upload.");
+      finished=true;
+      clearTimeout(timer);
+      resolve(data);
+    }).catch(function(error){
+      if(finished)return;
+      finished=true;
+      clearTimeout(timer);
+      if(error&&error.name==="AbortError"){
+        reject(new Error("UPLOAD_TIMEOUT"));
+      }else{
+        reject(error instanceof Error?error:new Error(String(error||"Upload gagal.")));
       }
     });
-    query.set("callback",cb);
-    query.set("_",String(Date.now()));
-
-    script.src=BACKEND_URL+"?"+query.toString();
-    script.async=true;
-    document.body.appendChild(script);
-
-    timer=setTimeout(function(){
-      if(done) return;
-      done=true;
-      cleanup();
-      reject(new Error("Respons upload dari Google Apps Script terlalu lama."));
-    }, Number(timeoutMs)||60000);
   });
 }
 
+
+function uploadRequestWithRetry(params, timeoutMs, maxAttempts){
+  const attempts=Math.max(1,Number(maxAttempts)||2);
+  return (async function(){
+    let lastError=null;
+    for(let attempt=1;attempt<=attempts;attempt++){
+      try{return await uploadRequest(params,timeoutMs);}catch(error){
+        lastError=error;
+        if(attempt<attempts)await new Promise(function(resolve){setTimeout(resolve,Math.min(1500,300*attempt));});
+      }
+    }
+    throw lastError||new Error("Upload gagal.");
+  })();
+}
 async function uploadFileToBackend(file,ui){
   if(!file)throw new Error("File tidak dipilih.");
   if(file.size<=0)throw new Error("File kosong.");
@@ -2140,7 +2177,7 @@ async function uploadFileToBackend(file,ui){
   let sessionId=null;
 
   try{
-    const init=await uploadJsonp({
+    const init=await uploadRequestWithRetry({
       action:"upload_init",
       fileName:file.name,
       mimeType:file.type||"application/octet-stream",
@@ -2194,7 +2231,7 @@ async function uploadFileToBackend(file,ui){
     if(activeUpload&&activeUpload.cancelled)throw new Error("UPLOAD_CANCELLED");
     setCardProgress(ui,98);
 
-    const result=await uploadJsonp({
+    const result=await uploadRequestWithRetry({
       action:"upload_complete",
       sessionId,
       fileName:file.name,
@@ -2206,7 +2243,7 @@ async function uploadFileToBackend(file,ui){
     // Jangan menunggu upload_abort. Saat user membatalkan, UI harus
     // langsung selesai; cleanup server berjalan asynchronous.
     if(sessionId){
-      uploadJsonp({action:"upload_abort",sessionId},5000).catch(function(e){
+      uploadRequest({action:"upload_abort",sessionId},5000).catch(function(e){
         console.warn("ZOYA upload_abort:",e);
       });
     }
@@ -2219,7 +2256,7 @@ async function processUploadQueue(){if(isUploading)return;const item=uploadQueue
     saveHistoryFile(result,"UPLOAD",zoyaHistoryConversationId,{url:String(result.url||"")});
     // Indexing RAG tidak menahan proses upload.
     indexKnowledgeInBackground(result.fileId,result.fileName);
-    item.status="done"}catch(error){item.status=error.message==="UPLOAD_CANCELLED"?"cancelled":"error";if(error.message!=="UPLOAD_CANCELLED")failCard(item.ui,error.message||"Gagal");else removeCard(item.ui)}finally{activeUpload=null;isUploading=false;uploadQueue=uploadQueue.filter(x=>x.status!=="cancelled"&&x.status!=="error");documentInput.value="";imageInput.value="";refreshSendState();processUploadQueue()}}
+    item.status="done"}catch(error){item.status=error.message==="UPLOAD_CANCELLED"?"cancelled":"error";if(error.message!=="UPLOAD_CANCELLED")failCard(item.ui,error.message||"Gagal");else removeCard(item.ui)}finally{activeUpload=null;isUploading=false;uploadQueue=uploadQueue.filter(x=>x.status!=="cancelled"&&x.status!=="error");documentInput.value="";imageInput.value="";refreshSendState();processUploadQueue();processKnowledgeQueueWhenIdle_()}}
 function cancelQueuedOrActive(item){
   if(item.status==="queued"){
     item.status="cancelled";
@@ -2251,7 +2288,7 @@ function cancelQueuedOrActive(item){
       try{activePostCancel();}catch(e){}
     }
     if(sid){
-      uploadJsonp({action:"upload_abort",sessionId:sid},5000).catch(function(e){
+      uploadRequest({action:"upload_abort",sessionId:sid},5000).catch(function(e){
         console.warn("ZOYA upload_abort:",e);
       });
     }
@@ -2266,76 +2303,34 @@ function toggleAttachMenu(){if(isSending)return;const open=attachMenu.classList.
 uploadButton.onclick=function(e){e.stopPropagation();toggleAttachMenu()};attachFile.onclick=function(){closeAttachMenu();documentInput.click()};attachImage.onclick=function(){closeAttachMenu();imageInput.click()};attachCamera.onclick=function(){closeAttachMenu();cameraInput.click()};attachVoice.onclick=function(){closeAttachMenu();if(micButton)micButton.click()};documentInput.onchange=function(){enqueueFiles(documentInput.files);documentInput.value=""};imageInput.onchange=function(){enqueueFiles(imageInput.files);imageInput.value=""};cameraInput.onchange=function(){enqueueFiles(cameraInput.files);cameraInput.value=""};document.addEventListener("click",function(e){if(attachWrap&&!attachWrap.contains(e.target))closeAttachMenu()});
 function postUploadChunk(sessionId,chunkIndex,totalChunks,base64Data){
   return new Promise(function(resolve,reject){
-    const frameName="zoraUploadFrame_"+Date.now()+"_"+Math.random().toString(36).slice(2,8);
-    const iframe=document.createElement("iframe");
-    iframe.name=frameName;
-    iframe.style.display="none";
-    document.body.appendChild(iframe);
-
-    const form=document.createElement("form");
-    form.method="POST";
-    form.action=BACKEND_URL;
-    form.target=frameName;
-    form.enctype="application/x-www-form-urlencoded";
-    form.style.display="none";
-
-    function addField(name,value){
-      const input=document.createElement("input");
-      input.type="hidden";
-      input.name=name;
-      input.value=value;
-      form.appendChild(input);
-    }
-
-    addField("action","upload_chunk");
-    addField("sessionId",sessionId);
-    addField("chunkIndex",chunkIndex);
-    addField("totalChunks",totalChunks);
-    addField("data",base64Data);
-    document.body.appendChild(form);
-
+    const controller=window.AbortController?new AbortController():null;
     let finished=false;
-    const timeout=setTimeout(function(){
+    const timer=setTimeout(function(){
       if(finished)return;
-      finished=true;
-      cleanup();
-      if(activePostCancel===cancel)activePostCancel=null;
-      reject(new Error("POST chunk timeout."));
+      if(controller){try{controller.abort();}catch(e){}}
+      finishError(new Error("POST chunk timeout."));
     },60000);
-
-    function cleanup(){
-      clearTimeout(timeout);
-      if(form.parentNode)form.parentNode.removeChild(form);
-      setTimeout(function(){if(iframe.parentNode)iframe.parentNode.removeChild(iframe)},100);
+    function finishError(error){
+      if(finished)return;finished=true;clearTimeout(timer);
+      if(activePostCancel===cancel)activePostCancel=null;
+      reject(error instanceof Error?error:new Error(String(error||"POST chunk gagal.")));
     }
-
+    function finishSuccess(data){
+      if(finished)return;finished=true;clearTimeout(timer);
+      if(activePostCancel===cancel)activePostCancel=null;resolve(data);
+    }
     function cancel(){
       if(finished)return;
-      finished=true;
-      cleanup();
-      if(activePostCancel===cancel)activePostCancel=null;
-      reject(new Error("UPLOAD_CANCELLED"));
+      if(controller){try{controller.abort();}catch(e){}}
+      finishError(new Error("UPLOAD_CANCELLED"));
     }
-
     activePostCancel=cancel;
-
-    iframe.onload=function(){
-      if(finished)return;
-      finished=true;
-      cleanup();
-      if(activePostCancel===cancel)activePostCancel=null;
-      resolve({success:true});
-    };
-
-    iframe.onerror=function(){
-      if(finished)return;
-      finished=true;
-      cleanup();
-      if(activePostCancel===cancel)activePostCancel=null;
-      reject(new Error("POST chunk gagal dikirim ke Google Apps Script."));
-    };
-
-    form.submit();
+    const body=new URLSearchParams();
+    body.set("action","upload_chunk");body.set("sessionId",sessionId);body.set("chunkIndex",String(chunkIndex));body.set("totalChunks",String(totalChunks));body.set("data",base64Data);
+    fetch(BACKEND_URL,{method:"POST",mode:"cors",credentials:"omit",redirect:"follow",headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},body:body.toString(),signal:controller?controller.signal:undefined,cache:"no-store"})
+      .then(function(response){if(!response.ok)throw new Error("Upload chunk HTTP "+response.status+".");return response.text();})
+      .then(function(text){let data;try{data=JSON.parse(text);}catch(e){throw new Error("Respons upload chunk tidak valid.");}if(!data||data.success!==true)throw new Error(data&&data.error?String(data.error):"Upload chunk ditolak server.");finishSuccess(data);})
+      .catch(function(error){if(finished)return;if(error&&error.name==="AbortError")finishError(new Error("POST chunk dibatalkan atau timeout."));else finishError(error);});
   });
 }
 
