@@ -66,7 +66,7 @@ h1{font-size:25px;margin:0 0 8px}.sub{color:#777;font-size:14px;line-height:1.5;
 
 <script>
 const OSIN_BACKEND_URL="https://script.google.com/macros/s/AKfycbxKwjNmcJTZherQem5fECFHsGgNwH0QJQPqf1Zry1USALlif3iRBSy7i3wlGqWeXV0/exec";
-const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V6";
+const OSIN_SESSION_KEY="ZOYA_OSIN_SESSION_V9";
 const ZOYA_AUTH_STORAGE_KEY="ZOYA_GOOGLE_SESSION_V1";
 let osinSession=null;
 let recognition=null;
@@ -163,9 +163,9 @@ async function refreshIndexStatus(){
         const q=pendingAutoQuery;pendingAutoQuery="";document.getElementById("query").value=q;setTimeout(()=>runSearch(),200);
       }
     }else if(data.status==="BUILDING" || (data.status==="READY" && Number(stats.indexedFiles||0)<=0)){
-      st.textContent=prefix+"Content Index sedang dibangun. File terindeks: "+String(stats.indexedFiles||0)+".";
+      st.textContent=prefix+"Content Index sedang dibangun. File terindeks: "+String(stats.indexedFiles||0)+" | File dipindai: "+String(stats.files||0)+" | Folder: "+String(stats.folders||0)+".";
       try{await pumpIndex();}catch(e){}
-      indexPumpTimer=setTimeout(refreshIndexStatus,12000);
+      indexPumpTimer=setTimeout(refreshIndexStatus,4000);
     }else{
       st.textContent=prefix+"Content Index belum tersedia. Memulai indexing database...";
       try{await startIndexBuild();}catch(e){}
