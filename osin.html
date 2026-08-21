@@ -199,25 +199,25 @@ function setupVoice(){
   recognition.onresult=(e)=>{const text=e.results&&e.results[0]&&e.results[0][0]?e.results[0][0].transcript:"";if(text)document.getElementById("query").value=text.trim()};
 }
 function toggleVoice(){if(!recognition){alert("Browser ini belum mendukung Voice to Text OSIN.");return}try{if(isListening)recognition.stop();else recognition.start()}catch(_){} }
-async function restoreOsinSession(){
+function initOsinGate(){
   if(!ensureZoyaLogin())return;
-  const d=loadOsinSession();
-  if(!d||d.authenticated!==true||!d.sessionToken)return;
-  osinSession=d;
-  try{
-    await validateOsinSession();
-    unlockUI();
-    refreshIndexStatus();
-  }catch(_){
-    clearOsinSession();
-  }
+
+  // Jangan auto-unlock halaman OSIN berdasarkan session frontend lama.
+  // Password OSIN harus selalu diminta saat membuka halaman ini.
+  osinSession=null;
+  try{sessionStorage.removeItem(OSIN_SESSION_KEY)}catch(_){}
+
+  document.getElementById("gate").classList.remove("hidden");
+  document.getElementById("searchPage").classList.add("hidden");
+  document.getElementById("osinPassword").value="";
+  setTimeout(()=>document.getElementById("osinPassword").focus(),50);
 }
 
 document.getElementById("gateForm").addEventListener("submit",submitGate);
 document.getElementById("searchButton").addEventListener("click",runSearch);
 document.getElementById("query").addEventListener("keydown",e=>{if(e.key==="Enter")runSearch()});
 document.getElementById("voiceButton").addEventListener("click",toggleVoice);
-setupVoice();restoreOsinSession();
+setupVoice();initOsinGate();
 </script>
 </body>
 </html>
