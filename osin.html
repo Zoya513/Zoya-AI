@@ -133,6 +133,10 @@ async function getIndexStatus(){
   if(!osinSession||!osinSession.sessionToken)return null;
   return jsonp("index_status",{session_token:String(osinSession.sessionToken)},15000);
 }
+async function pumpIndex(){
+  if(!osinSession||!osinSession.sessionToken)return null;
+  return jsonp("index_pump",{session_token:String(osinSession.sessionToken)},25000);
+}
 async function getExternalSources(){
   if(!osinSession||!osinSession.sessionToken)return null;
   return jsonp("external_sources",{session_token:String(osinSession.sessionToken)},20000);
@@ -141,6 +145,8 @@ async function startIndexBuild(){
   if(!osinSession||!osinSession.sessionToken)return null;
   return jsonp("index_build",{session_token:String(osinSession.sessionToken)},30000);
 }
+let indexPumpTimer=null;
+let pendingAutoQuery="";
 async function refreshIndexStatus(){
   try{
     const data=await getIndexStatus();
@@ -150,17 +156,20 @@ async function refreshIndexStatus(){
     const driveCount=Array.isArray(data.databaseSources)?data.databaseSources.length:0;
     const apiCount=Array.isArray(data.externalApiSources)?data.externalApiSources.length:0;
     const prefix="Sumber: "+driveCount+" Google Drive + "+apiCount+" External API. ";
-    if(data.status==="READY"){
+    if(data.status==="READY" && Number(stats.indexedFiles||0)>0){
       st.textContent=prefix+"Content Index siap. File terindeks: "+String(stats.indexedFiles||0)+".";
-    }else if(data.status==="BUILDING"){
+      if(indexPumpTimer){clearTimeout(indexPumpTimer);indexPumpTimer=null;}
+      if(pendingAutoQuery){
+        const q=pendingAutoQuery;pendingAutoQuery="";document.getElementById("query").value=q;setTimeout(()=>runSearch(),200);
+      }
+    }else if(data.status==="BUILDING" || (data.status==="READY" && Number(stats.indexedFiles||0)<=0)){
       st.textContent=prefix+"Content Index sedang dibangun. File terindeks: "+String(stats.indexedFiles||0)+".";
-      setTimeout(refreshIndexStatus,20000);
+      try{await pumpIndex();}catch(e){}
+      indexPumpTimer=setTimeout(refreshIndexStatus,12000);
     }else{
       st.textContent=prefix+"Content Index belum tersedia. Memulai indexing database...";
-      try{
-        await startIndexBuild();
-        setTimeout(refreshIndexStatus,8000);
-      }catch(e){}
+      try{await startIndexBuild();}catch(e){}
+      indexPumpTimer=setTimeout(refreshIndexStatus,3000);
     }
   }catch(e){}
 }
@@ -168,7 +177,7 @@ async function refreshIndexStatus(){
 async function runSearch(){
   if(!ensureZoyaLogin())return;const q=document.getElementById("query").value.trim();if(!q)return;
   const btn=document.getElementById("searchButton");const status=document.getElementById("searchStatus");showError("gateError","");btn.disabled=true;status.textContent="Mencari...";
-  try{const data=await searchOsin(q);renderResults(data.results||[]);status.textContent=String(data.message||((data.results||[]).length+" hasil ditemukan."));refreshIndexStatus();}
+  try{const data=await searchOsin(q);renderResults(data.results||[]);status.textContent=String(data.message||((data.results||[]).length+" hasil ditemukan."));if(data.diagnostics&&data.diagnostics.truncated){pendingAutoQuery=q;}refreshIndexStatus();}
   catch(e){
     status.textContent="";
     document.getElementById("results").innerHTML='<div class="empty">'+escapeHtml(e.message||"Pencarian gagal.")+'</div>';
